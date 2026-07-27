@@ -116,3 +116,19 @@ def update_profile(
         "department": current.department,
         "year": current.year,
     }
+
+
+class FCMTokenRequest(BaseModel):
+    token: str
+
+
+@router.post("/fcm-token")
+def update_fcm_token(
+    req: FCMTokenRequest,
+    current: Student = Depends(_get_current_student),
+    db: Session = Depends(get_db),
+):
+    """Save the FCM push notification token for the student."""
+    current.fcm_token = req.token
+    db.commit()
+    return {"status": "success", "message": "FCM token updated."}

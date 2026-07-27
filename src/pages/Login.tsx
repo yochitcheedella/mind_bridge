@@ -27,6 +27,25 @@ export default function Login() {
       }
       const data = await res.json();
       setAuth({ access_token: data.access_token, anonymous_alias: data.anonymous_alias, student_id: data.student_id });
+      
+      // Request Push Notification Permission
+      try {
+        const { requestFirebaseNotificationPermission } = await import('../utils/firebase');
+        const token = await requestFirebaseNotificationPermission();
+        if (token) {
+          await fetch('http://localhost:8000/api/auth/fcm-token', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.access_token}`
+            },
+            body: JSON.stringify({ token }),
+          });
+        }
+      } catch (fcmErr) {
+        console.warn("FCM setup failed:", fcmErr);
+      }
+
       navigate('/');
     } catch (err: any) {
       setError(err.message);

@@ -113,14 +113,14 @@ async def send_counselor_message(anonymous_id: str, req: ChatMessageRequest, db:
     
     # Push Notification to Student Device
     from app.services.notifications import send_push_notification
-    # Note: In a real app, you would retrieve the student's registered FCM token from the database
-    mock_student_fcm_token = "placeholder-student-fcm-token"
-    send_push_notification(
-        title="MindBridge Clinical Team",
-        body="You have a new message from a counselor.",
-        fcm_token=mock_student_fcm_token,
-        data={"type": "counselor_message", "student_id": str(student.id)}
-    )
+    # Note: Retrieving the student's registered FCM token from the database
+    if student.fcm_token:
+        send_push_notification(
+            title="MindBridge Clinical Team",
+            body="You have a new message from a counselor.",
+            fcm_token=student.fcm_token,
+            data={"type": "counselor_message", "student_id": str(student.id)}
+        )
 
     return {"status": "success", "message_id": counselor_msg.id}
 
@@ -200,12 +200,11 @@ def set_followup(anonymous_id: str, req: FollowUpRequest, db: Session = Depends(
     # Push Notification to Student Device
     from app.services.notifications import send_push_notification
     student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
-    if student:
-        mock_student_fcm_token = "placeholder-student-fcm-token"
+    if student and student.fcm_token:
         send_push_notification(
             title="MindBridge - Follow Up Scheduled",
             body=f"A counselor has scheduled a check-in for {parsed.strftime('%B %d, %Y')}.",
-            fcm_token=mock_student_fcm_token,
+            fcm_token=student.fcm_token,
             data={"type": "follow_up", "student_id": str(student.id)}
         )
 
