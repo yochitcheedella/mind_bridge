@@ -9,6 +9,8 @@ firebase_creds = os.getenv("FIREBASE_CREDENTIALS_JSON")
 
 if firebase_creds:
     try:
+        if firebase_creds.startswith("'") and firebase_creds.endswith("'"):
+            firebase_creds = firebase_creds[1:-1]
         cred_dict = json.loads(firebase_creds)
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
