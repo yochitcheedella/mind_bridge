@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border-strong rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-muted; }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface-dim/80 backdrop-blur-xl border border-border rounded-xl;
+  }
+
+  /* Animated orb blobs used in auth pages */
+  .orb {
+    @apply absolute rounded-full blur-3xl pointer-events-none opacity-40;
+  }
+
+  /* Risk level color utilities */
+  .risk-green  { @apply text-success; }
+  .risk-yellow { @apply text-warning; }
+  .risk-orange { color: #fb923c; }
+  .risk-red    { @apply text-error; }
+  .risk-critical { @apply text-error animate-pulse; }
+}
