@@ -10,3 +10,4 @@ supabase
 firebase-admin
 slowapi
 python-dotenv
+python-multipart
