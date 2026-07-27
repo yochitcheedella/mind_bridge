@@ -8,3 +8,4 @@ openai
 psycopg2-binary
 supabase
 firebase-admin
+slowapi
