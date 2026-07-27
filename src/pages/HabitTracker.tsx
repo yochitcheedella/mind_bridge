@@ -50,7 +50,7 @@ function calcStreak(completions: string[]): number {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const s: Record<string, React.CSSProperties> = {
+const s: any = {
   page: { minHeight: '100vh', background: 'var(--color-background)', color: 'var(--color-text)', paddingBottom: 100 },
   header: {
     position: 'sticky', top: 0, zIndex: 10,

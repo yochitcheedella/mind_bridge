@@ -13,7 +13,7 @@ const DEPARTMENTS = [
 const YEARS = [1, 2, 3, 4, 5, 6];
 
 // ─── Inline style tokens ───────────────────────────────────────────────────────
-const s: Record<string, React.CSSProperties> = {
+const s: any = {
   page: { minHeight: '100vh', background: 'var(--color-background)', color: 'var(--color-text)', paddingBottom: 100 },
   header: {
     position: 'sticky', top: 0, zIndex: 10,

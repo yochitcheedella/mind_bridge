@@ -132,12 +132,12 @@ export default function Journal() {
               </div>
               <p className="text-xs text-text-muted mb-4">Name three things you're grateful for right now — big or small.</p>
               <div className="space-y-3 mb-4">
-                {[['1', gratitude1, setGratitude1], ['2', gratitude2, setGratitude2], ['3', gratitude3, setGratitude3]].map(([num, val, setter]) => (
-                  <div key={num as string} className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">{num}</span>
+                {[{id: '1', val: gratitude1, set: setGratitude1}, {id: '2', val: gratitude2, set: setGratitude2}, {id: '3', val: gratitude3, set: setGratitude3}].map(({id, val, set}) => (
+                  <div key={id} className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">{id}</span>
                     <input
-                      value={val as string}
-                      onChange={e => (setter as (v: string) => void)(e.target.value)}
+                      value={val}
+                      onChange={e => set(e.target.value)}
                       placeholder={`I'm grateful for…`}
                       className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/50 transition-all"
                     />

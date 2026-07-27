@@ -68,7 +68,7 @@ export default function AdminAnalytics() {
       .then(data => setAnalytics(data))
       .catch(() => setAnalytics({
         total_students: 1402, average_risk_score: 0.22, high_risk_count: 3,
-        medium_risk_count: 47, average_mood_score: 3.4, campus_wellbeing_percent: 78,
+        medium_risk_count: 47, average_mood_score: 3.4, campus_wellbeing_percent: 78, average_burnout_probability: 0.15,
       }))
       .finally(() => setLoading(false));
   }, []);
