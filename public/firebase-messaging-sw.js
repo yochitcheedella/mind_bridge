@@ -3,12 +3,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 
 // TODO: Replace with your actual Firebase config from the console
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDnT6SqOLBmL69ht-fhh9abuDjVzfhoRc4",
+  authDomain: "mind-bridge-7b156.firebaseapp.com",
+  projectId: "mind-bridge-7b156",
+  storageBucket: "mind-bridge-7b156.firebasestorage.app",
+  messagingSenderId: "304970317064",
+  appId: "1:304970317064:web:b9c813de4eb1d571ce80bd"
 });
 
 const messaging = firebase.messaging();
