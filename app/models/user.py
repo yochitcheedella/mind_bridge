@@ -15,4 +15,5 @@ class Student(Base):
     risk_score = Column(Float, default=0.0)
     burnout_probability = Column(Float, default=0.0)
     daily_wellness_score = Column(Integer, default=100)
+    fcm_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
