@@ -11,3 +11,5 @@ firebase-admin
 slowapi
 python-dotenv
 python-multipart
+prometheus-fastapi-instrumentator
+gunicorn

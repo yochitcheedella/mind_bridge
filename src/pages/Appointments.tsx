@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, ChevronRight, ArrowLeft, Video, QrCode } from 'lucide-react';
 import { apiFetch } from '../utils/auth';
 
 interface Slot {
@@ -20,6 +20,8 @@ interface Appointment {
   slot_time: string;
   status: string;
   notes: string | null;
+  meeting_link?: string;
+  check_in_code?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -205,11 +207,22 @@ export default function Appointments() {
                       </span>
                     </div>
                     {appt.status === 'confirmed' && isFuture && (
-                      <div className="mt-3 pt-3 border-t border-border flex justify-end">
+                      <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
                         <button onClick={() => handleCancel(appt.id)}
                           className="text-xs text-text-muted hover:text-error transition-colors flex items-center gap-1">
-                          <XCircle size={12} /> Cancel session
+                          <XCircle size={12} /> Cancel
                         </button>
+                        <div className="flex items-center gap-2">
+                          {appt.meeting_link ? (
+                            <button className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-semibold hover:bg-primary/20 transition-all flex items-center gap-1.5">
+                              <Video size={12} /> Join Video
+                            </button>
+                          ) : appt.check_in_code ? (
+                            <button className="text-xs bg-surface-dim border border-border text-text px-3 py-1.5 rounded-lg font-semibold hover:bg-surface-bright transition-all flex items-center gap-1.5">
+                              <QrCode size={12} /> QR Check-in
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     )}
                   </Card>

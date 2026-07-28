@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, User, GraduationCap, Hash, LogOut, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Shield, User, GraduationCap, Hash, LogOut, CheckCircle, AlertCircle, Download, Trash2, ShieldAlert } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { getAlias, getAuth, clearAuth, apiFetch, isLoggedIn } from '../utils/auth';
@@ -85,6 +85,9 @@ export default function ProfileSettings() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Fetch current profile
   useEffect(() => {
     if (!loggedIn) return;
@@ -125,6 +128,55 @@ export default function ProfileSettings() {
   function handleLogout() {
     clearAuth();
     navigate('/login');
+  }
+
+  async function handleExportData() {
+    if(!loggedIn) return;
+    setExporting(true);
+    try {
+      const res = await apiFetch('/api/privacy/export');
+      if (res.ok) {
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mindbridge_export_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert("Failed to export data.");
+      }
+    } catch (e) {
+      alert("Error exporting data.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if(!loggedIn) return;
+    const confirm1 = window.confirm("WARNING: This will permanently delete your account, all chat history, journal entries, and mood logs. This action CANNOT be undone.");
+    if (!confirm1) return;
+    
+    const confirm2 = window.prompt("To confirm deletion, type 'DELETE' below:");
+    if (confirm2 !== 'DELETE') return;
+    
+    setDeleting(true);
+    try {
+      const res = await apiFetch('/api/privacy/account', { method: 'DELETE' });
+      if (res.ok) {
+        handleLogout();
+      } else {
+        alert("Failed to delete account.");
+      }
+    } catch (e) {
+      alert("Error deleting account.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -238,7 +290,7 @@ export default function ProfileSettings() {
         )}
 
         {/* ── Privacy Notice ── */}
-        <Card style={{ padding: '16px 18px', borderColor: 'rgba(161,243,195,0.15)', background: 'rgba(161,243,195,0.04)' }}>
+        <Card style={{ padding: '16px 18px', borderColor: 'rgba(161,243,195,0.15)', background: 'rgba(161,243,195,0.04)', marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <Shield size={16} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: 2 }} />
             <div>
@@ -251,6 +303,42 @@ export default function ProfileSettings() {
             </div>
           </div>
         </Card>
+
+        {/* ── Data & Privacy Controls ── */}
+        <section>
+          <p style={s.sectionLabel}><ShieldAlert size={12} /> Data &amp; Privacy Controls</p>
+          <Card style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>Export Your Data</p>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: 12 }}>
+                Download a complete JSON copy of your profile, chats, journals, sleep, and mood logs.
+              </p>
+              <button 
+                onClick={handleExportData} 
+                disabled={exporting}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-surface-bright)', color: 'var(--color-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Download size={14} /> {exporting ? 'Exporting...' : 'Export JSON Data'}
+              </button>
+            </div>
+            
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '4px 0' }} />
+            
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-error)', marginBottom: 4 }}>Delete Account</p>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: 12 }}>
+                Permanently erase your identity and all associated data from the platform. This cannot be undone.
+              </p>
+              <button 
+                onClick={handleDeleteAccount} 
+                disabled={deleting}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(255,107,107,0.3)', background: 'rgba(255,107,107,0.1)', color: 'var(--color-error)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </Card>
+        </section>
 
         {/* ── Logout ── */}
         <section>

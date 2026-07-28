@@ -220,3 +220,37 @@ def complete_followup(anonymous_id: str, followup_id: int, db: Session = Depends
     row.completed = 1
     db.commit()
     return {"status": "completed"}
+
+
+class IdentityRequestPayload(BaseModel):
+    reason: str
+
+
+@router.post("/student/{anonymous_id}/request-identity")
+def request_student_identity(anonymous_id: str, req: IdentityRequestPayload, db: Session = Depends(get_db)):
+    """Request the real identity of a student in a life-threatening emergency."""
+    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    if student.risk_score < 0.8:
+        raise HTTPException(status_code=403, detail="Identity reveal is only permitted for critical risk cases (score >= 0.8)")
+        
+    # In a real app, this would send an approval request to a University Admin.
+    # For now, we mock the approval process and return the decrypted identity.
+    from app.core.security import decrypt_data
+    
+    real_name = decrypt_data(student.encrypted_name) if student.encrypted_name else "Unknown"
+    real_email = decrypt_data(student.encrypted_email) if student.encrypted_email else "Unknown"
+    real_phone = decrypt_data(student.encrypted_phone) if student.encrypted_phone else "Unknown"
+    
+    # Log this extremely sensitive action
+    print(f"CRITICAL AUDIT: Psychologist requested identity for alias {anonymous_id}. Reason: {req.reason}")
+    
+    return {
+        "status": "approved",
+        "real_name": real_name,
+        "real_email": real_email,
+        "real_phone": real_phone
+    }
+

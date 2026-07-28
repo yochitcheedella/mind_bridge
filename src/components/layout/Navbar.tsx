@@ -1,22 +1,23 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, MessageSquare, Calendar, AlertTriangle, Users, Wind, CheckSquare } from 'lucide-react';
+import { Home, MessageSquare, Calendar, AlertTriangle, Users, Wind, CheckSquare, Bell } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { path: '/',            icon: Home,          label: 'Home' },
+  { path: '/dashboard',            icon: Home,          label: 'Home' },
   { path: '/chat',        icon: MessageSquare, label: 'AI Chat' },
   { path: '/community',   icon: Users,         label: 'Community' },
-  { path: '/wellness',    icon: Wind,          label: 'Breathe' },
   { path: '/habits',      icon: CheckSquare,   label: 'Habits' },
+  { path: '/recovery-plan', icon: Wind,        label: 'Recovery' },
   { path: '/appointments',icon: Calendar,      label: 'Sessions' },
+  { path: '/notifications',icon: Bell,          label: 'Alerts' },
   { path: '/emergency',   icon: AlertTriangle, label: 'SOS', isAlert: true },
 ];
 
 export function Navbar() {
   const location = useLocation();
 
-  // Hide navbar on auth pages and clinical/admin views
-  const hiddenPaths = ['/login', '/register', '/clinical', '/emergency', '/admin'];
-  if (hiddenPaths.some(p => location.pathname.startsWith(p))) return null;
+  // Hide navbar on auth pages, landing, onboarding and clinical/admin views
+  const hiddenPaths = ['/login', '/register', '/onboarding', '/clinical', '/emergency', '/admin'];
+  if (location.pathname === '/' || hiddenPaths.some(p => location.pathname.startsWith(p))) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-surface-dim/90 backdrop-blur-xl border-t border-border safe-area-pb">

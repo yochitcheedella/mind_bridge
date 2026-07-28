@@ -82,3 +82,56 @@ def _mock_llm_response(last_message: str) -> dict:
         "risk_score": 10,
         "wellness_suggestions": ["Journaling"]
     }
+
+async def generate_journal_insights(journal_texts: list) -> dict:
+    """
+    Analyzes recent journal entries and provides CBT-inspired insights.
+    Returns a dict with 'summary', 'patterns', 'advice'.
+    """
+    if not journal_texts:
+        return {
+            "summary": "No recent entries to analyze.",
+            "patterns": [],
+            "advice": "Keep writing to discover more about yourself."
+        }
+
+    if not client:
+        logger.warning("OPENAI_API_KEY not set. Using mock journal insights.")
+        return {
+            "summary": "You've been expressing a mix of emotions recently. It's clear you're navigating some challenges but also showing resilience.",
+            "patterns": ["Increased stress around academics", "Seeking connection"],
+            "advice": "Consider breaking down your large tasks into smaller, manageable pieces to reduce feeling overwhelmed."
+        }
+
+    combined_text = "\n\n---\n\n".join(journal_texts)
+    system_prompt = f"""
+You are MindBridge AI, an empathetic and professional psychological analyzer.
+Read the user's recent journal entries below and provide a supportive, CBT-inspired reflection.
+
+You MUST return your response as a JSON object with the following exact keys:
+{{
+    "summary": "A 2-3 sentence empathetic summary of how they've been feeling.",
+    "patterns": ["Pattern 1", "Pattern 2"],
+    "advice": "A gentle, actionable piece of CBT or mindfulness advice."
+}}
+
+Journal Entries:
+{combined_text}
+"""
+    try:
+        completion = await client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": system_prompt}],
+            response_format={ "type": "json_object" },
+            temperature=0.7,
+            max_tokens=300,
+        )
+        response_content = completion.choices[0].message.content
+        return json.loads(response_content)
+    except Exception as e:
+        logger.error(f"LLM API Error for Journal Insights: {e}")
+        return {
+            "summary": "We couldn't generate a deep reflection right now, but your feelings are valid.",
+            "patterns": ["Reflective"],
+            "advice": "Try again later when the service is fully restored."
+        }

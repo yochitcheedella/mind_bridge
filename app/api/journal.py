@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_student
 from app.models.journal import JournalEntry
 from app.models.user import Student
+from app.services.llm import generate_journal_insights
 
 router = APIRouter(prefix="/api/journal", tags=["journal"])
 
@@ -59,3 +60,21 @@ def get_entries(
         }
         for e in entries
     ]
+
+
+@router.get("/insights")
+async def get_journal_insights(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    entries = (
+        db.query(JournalEntry)
+        .filter(JournalEntry.student_id == student.id)
+        .order_by(JournalEntry.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    
+    texts = [e.content for e in entries if e.content]
+    insights = await generate_journal_insights(texts)
+    return insights

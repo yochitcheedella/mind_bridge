@@ -12,10 +12,22 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [department, setDepartment] = useState('Computer Science');
   const [year, setYear] = useState(1);
+  const [universityId, setUniversityId] = useState<number | ''>('');
+  const [universities, setUniversities] = useState<{id: number, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [alias, setAlias] = useState('');
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    fetch('http://localhost:8000/api/auth/universities')
+      .then(res => res.json())
+      .then(data => {
+        setUniversities(data);
+        if (data.length > 0) setUniversityId(data[0].id);
+      })
+      .catch(err => console.error("Could not fetch universities", err));
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,14 +37,14 @@ export default function Register() {
       const res = await fetch('http://localhost:8000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, department, year }),
+        body: JSON.stringify({ email, password, department, year, university_id: universityId === '' ? null : universityId }),
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.detail || 'Registration failed');
       }
       const data = await res.json();
-      setAuth({ access_token: data.access_token, anonymous_alias: data.anonymous_alias, student_id: data.student_id });
+      setAuth({ access_token: data.access_token, anonymous_alias: data.anonymous_alias, student_id: data.student_id, primary_color: data.primary_color });
       setAlias(data.anonymous_alias);
       
       // Request Push Notification Permission
@@ -110,6 +122,16 @@ export default function Register() {
                 </div>
               </div>
 
+              {/* University */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">University</label>
+                <select value={universityId} onChange={e => setUniversityId(Number(e.target.value))} required
+                  className="w-full bg-surface border border-border rounded-xl px-3 py-3 text-sm text-text focus:outline-none focus:border-primary/60 transition-all">
+                  <option value="" disabled>Select your university...</option>
+                  {universities.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+
               {/* Department + Year */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -184,7 +206,7 @@ export default function Register() {
               ))}
             </div>
 
-            <button onClick={() => navigate('/')}
+            <button onClick={() => navigate('/dashboard')}
               className="w-full bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
               Enter Dashboard <ChevronRight size={16} />
             </button>

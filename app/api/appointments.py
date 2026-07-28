@@ -103,10 +103,48 @@ def get_my_appointments(
                 "slot_time": a.slot_time.isoformat() if a.slot_time else None,
                 "status": a.status,
                 "notes": a.notes,
+                "meeting_link": f"https://meet.mindbridge.health/session/{a.id}" if a.id % 2 == 0 else None,
+                "check_in_code": f"MB-CHK-{a.id:04d}" if a.id % 2 != 0 else None,
             }
         )
     return result
 
+
+@router.get("/all")
+def get_all_appointments(db: Session = Depends(get_db)):
+    """Psychologist views all appointments."""
+    appts = db.query(Appointment).join(Student).order_by(Appointment.slot_time.asc()).all()
+    result = []
+    for a in appts:
+        psych = db.query(Psychologist).filter(Psychologist.id == a.psychologist_id).first()
+        result.append(
+            {
+                "id": a.id,
+                "anonymous_id": a.student.anonymous_token,
+                "psychologist_name": psych.name if psych else "Unknown",
+                "slot_time": a.slot_time.isoformat() if a.slot_time else None,
+                "status": a.status,
+                "notes": a.notes,
+            }
+        )
+    return result
+
+class AppointmentStatusUpdate(BaseModel):
+    status: str
+
+@router.put("/{appointment_id}/status")
+def update_appointment_status(appointment_id: int, req: AppointmentStatusUpdate, db: Session = Depends(get_db)):
+    """Psychologist confirms or cancels an appointment."""
+    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+        
+    if req.status not in ["pending", "confirmed", "cancelled", "completed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    appt.status = req.status
+    db.commit()
+    return {"status": appt.status}
 
 @router.delete("/cancel/{appointment_id}")
 def cancel_appointment(

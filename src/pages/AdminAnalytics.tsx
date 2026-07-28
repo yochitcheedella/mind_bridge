@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { BarChart3, Shield, Users, AlertTriangle, TrendingDown, TrendingUp, Activity, Eye } from 'lucide-react';
+import { BarChart3, Shield, Users, AlertTriangle, TrendingDown, TrendingUp, Activity, Eye, Settings, UserPlus, Trash2 } from 'lucide-react';
+import { apiFetch } from '../utils/auth';
 
 interface Analytics {
   total_students: number;
@@ -11,15 +12,16 @@ interface Analytics {
   average_mood_score: number;
   average_burnout_probability: number;
   campus_wellbeing_percent: number;
+  department_data?: { name: string; stress: number }[];
 }
 
-const DEPARTMENT_DATA = [
-  { name: 'Computer Science', stress: 72, color: '#5E6BFF' },
-  { name: 'Medicine',         stress: 81, color: '#ffb4ab' },
-  { name: 'Engineering',      stress: 68, color: '#f7d383' },
-  { name: 'Management',       stress: 55, color: '#a1f3c3' },
-  { name: 'Arts & Science',   stress: 48, color: '#7a85ff' },
-];
+interface Psychologist {
+  id: number;
+  name: string;
+  specialization: string;
+}
+
+const COLORS = ['#5E6BFF', '#ffb4ab', '#f7d383', '#a1f3c3', '#7a85ff', '#ff8fa3', '#ffd166'];
 
 function WellbeingRing({ percent }: { percent: number }) {
   const radius = 52;
@@ -59,19 +61,65 @@ function DeptStressBar({ name, stress, color }: { name: string; stress: number; 
 }
 
 export default function AdminAnalytics() {
+  const [activeTab, setActiveTab] = useState<'analytics' | 'personnel' | 'settings'>('analytics');
+  
+  // Analytics State
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Personnel State
+  const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
+  const [newPsychName, setNewPsychName] = useState('');
+  const [newPsychSpec, setNewPsychSpec] = useState('');
+  const [addingPsych, setAddingPsych] = useState(false);
+
   useEffect(() => {
-    fetch('http://localhost:8000/api/risk/analytics')
+    apiFetch('/api/risk/analytics')
       .then(r => r.json())
       .then(data => setAnalytics(data))
       .catch(() => setAnalytics({
         total_students: 1402, average_risk_score: 0.22, high_risk_count: 3,
         medium_risk_count: 47, average_mood_score: 3.4, campus_wellbeing_percent: 78, average_burnout_probability: 0.15,
+        department_data: [],
       }))
       .finally(() => setLoading(false));
+      
+    fetchPsychologists();
   }, []);
+
+  const fetchPsychologists = () => {
+    apiFetch('/api/admin/psychologists')
+      .then(r => r.json())
+      .then(data => { if(Array.isArray(data)) setPsychologists(data); })
+      .catch(console.error);
+  };
+
+  const handleAddPsychologist = async () => {
+    if(!newPsychName.trim() || !newPsychSpec.trim()) return;
+    setAddingPsych(true);
+    try {
+      const res = await apiFetch('/api/admin/psychologists', {
+        method: 'POST',
+        body: JSON.stringify({ name: newPsychName.trim(), specialization: newPsychSpec.trim() })
+      });
+      if(res.ok) {
+        setNewPsychName('');
+        setNewPsychSpec('');
+        fetchPsychologists();
+      }
+    } finally {
+      setAddingPsych(false);
+    }
+  };
+
+  const handleDeletePsychologist = async (id: number) => {
+    if(!window.confirm("Are you sure you want to remove this psychologist?")) return;
+    try {
+      const res = await apiFetch(`/api/admin/psychologists/${id}`, { method: 'DELETE' });
+      if(res.ok) fetchPsychologists();
+      else alert("Cannot delete psychologist. They may have active appointments.");
+    } catch(err) { console.error(err); }
+  };
 
   const a = analytics;
 
@@ -84,17 +132,36 @@ export default function AdminAnalytics() {
             <h1 className="font-heading font-bold text-xl">
               MindBridge<span className="text-primary">.Admin</span>
             </h1>
-            <p className="text-xs text-text-muted mt-0.5">Campus Wellbeing Analytics Dashboard</p>
+            <p className="text-xs text-text-muted mt-0.5">University Administration Portal</p>
+          </div>
+          <div className="flex bg-surface-bright rounded-xl p-1 shadow-inner border border-border">
+            <button onClick={() => setActiveTab('analytics')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
+                ${activeTab === 'analytics' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
+              <BarChart3 size={16} /> Analytics
+            </button>
+            <button onClick={() => setActiveTab('personnel')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
+                ${activeTab === 'personnel' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
+              <Users size={16} /> Personnel
+            </button>
+            <button onClick={() => setActiveTab('settings')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
+                ${activeTab === 'settings' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
+              <Settings size={16} /> Settings
+            </button>
           </div>
           <div className="flex items-center gap-2 bg-success/10 border border-success/25 rounded-lg px-3 py-2">
             <Shield size={14} className="text-success" />
-            <span className="text-xs text-success font-semibold">Anonymous Data Only</span>
+            <span className="text-xs text-success font-semibold">Admin Access</span>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 animate-fade-in">
-        {/* Privacy Banner */}
+        {activeTab === 'analytics' && (
+          <>
+            {/* Privacy Banner */}
         <div className="mb-8 flex items-start gap-3 bg-primary/8 border border-primary/20 rounded-xl p-4">
           <Eye size={18} className="text-primary shrink-0 mt-0.5" />
           <div>
@@ -132,7 +199,13 @@ export default function AdminAnalytics() {
               </h2>
               <p className="text-xs text-text-muted mb-5">Anonymous aggregate data. Higher % = higher average stress reported.</p>
               <div className="space-y-4">
-                {DEPARTMENT_DATA.map(d => <DeptStressBar key={d.name} {...d} />)}
+                {a?.department_data && a.department_data.length > 0 ? (
+                  a.department_data.map((d, i) => (
+                    <DeptStressBar key={d.name} name={d.name} stress={d.stress} color={COLORS[i % COLORS.length]} />
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">No department data available.</p>
+                )}
               </div>
             </Card>
           </section>
@@ -180,6 +253,104 @@ export default function AdminAnalytics() {
             </Card>
           </section>
         </div>
+        </>
+        )}
+
+        {activeTab === 'personnel' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-heading font-semibold text-lg">Manage Psychologists</h2>
+                <p className="text-xs text-text-muted mt-1">Add or remove clinical staff from the platform.</p>
+              </div>
+            </div>
+            
+            <Card className="p-5 flex items-end gap-4 bg-surface-bright/50 border-primary/20">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold text-text-muted">Full Name</label>
+                <input type="text" value={newPsychName} onChange={e => setNewPsychName(e.target.value)} placeholder="e.g. Dr. Jane Doe" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold text-text-muted">Specialization</label>
+                <input type="text" value={newPsychSpec} onChange={e => setNewPsychSpec(e.target.value)} placeholder="e.g. Academic Anxiety" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary/50" />
+              </div>
+              <button onClick={handleAddPsychologist} disabled={addingPsych || !newPsychName.trim() || !newPsychSpec.trim()} className="px-6 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2">
+                {addingPsych ? 'Adding...' : <><UserPlus size={16} /> Add Staff</>}
+              </button>
+            </Card>
+
+            <div className="grid gap-3">
+              {psychologists.map(p => (
+                <Card key={p.id} className="p-4 flex items-center justify-between hover:border-primary/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Shield size={18} className="text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-heading font-semibold text-text">{p.name}</h3>
+                      <p className="text-xs text-text-muted">{p.specialization}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeletePsychologist(p.id)} className="p-2 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                </Card>
+              ))}
+              {psychologists.length === 0 && (
+                <div className="text-center py-10 text-text-muted text-sm">No clinical staff added yet.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6 animate-slide-up">
+            <div>
+              <h2 className="font-heading font-semibold text-lg">Platform Settings</h2>
+              <p className="text-xs text-text-muted mt-1">Configure global university parameters and feature toggles.</p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="p-5 space-y-4">
+                <h3 className="font-heading font-semibold text-sm border-b border-border pb-2">Feature Toggles</h3>
+                {[
+                  { label: "AI Guide Module", active: true },
+                  { label: "Sleep Tracker", active: true },
+                  { label: "Community Forum", active: false },
+                  { label: "Emergency SOS Button", active: true },
+                  { label: "Parental Notifications", active: false },
+                ].map(f => (
+                  <div key={f.label} className="flex justify-between items-center">
+                    <span className="text-sm text-text-muted">{f.label}</span>
+                    <div className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${f.active ? 'bg-primary' : 'bg-surface-bright'}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${f.active ? 'left-5.5' : 'left-0.5'}`} style={{ left: f.active ? 'calc(100% - 1.125rem)' : '0.125rem' }}/>
+                    </div>
+                  </div>
+                ))}
+              </Card>
+
+              <Card className="p-5 space-y-4">
+                <h3 className="font-heading font-semibold text-sm border-b border-border pb-2">University Branding</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-text-muted">University Name</label>
+                    <input type="text" defaultValue="Tech University" className="w-full mt-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-text-muted">Primary Color (Hex)</label>
+                    <div className="flex gap-2 mt-1">
+                      <div className="w-10 h-10 rounded-xl bg-primary border border-border shrink-0" />
+                      <input type="text" defaultValue="#5E6BFF" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm" />
+                    </div>
+                  </div>
+                  <button className="w-full py-2 bg-surface-bright hover:bg-surface text-text-muted text-sm font-semibold rounded-xl border border-border mt-2 transition-colors">
+                    Save Branding
+                  </button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
 
         {/* Footer disclaimer */}
         <div className="mt-8 text-center text-xs text-text-muted opacity-60 space-y-1">

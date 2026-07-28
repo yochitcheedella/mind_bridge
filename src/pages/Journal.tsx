@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { BookOpen, PenLine, Tag, Trash2, CheckCircle2, Clock, ArrowLeft, Heart } from 'lucide-react';
+import { BookOpen, PenLine, Tag, Trash2, CheckCircle2, Clock, ArrowLeft, Heart, Sparkles, X } from 'lucide-react';
 import { apiFetch } from '../utils/auth';
+
+interface AIInsight { summary: string; patterns: string[]; advice: string; }
 
 interface JournalEntry { id: number; content: string; mood_tag: string | null; created_at: string; }
 
@@ -29,13 +31,17 @@ export default function Journal() {
   const [saved, setSaved] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
 
+  // AI Insight state
+  const [insight, setInsight] = useState<AIInsight | null>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
+
   // Gratitude state
   const [gratitude1, setGratitude1] = useState('');
   const [gratitude2, setGratitude2] = useState('');
   const [gratitude3, setGratitude3] = useState('');
-  const [gratSaving, setGratSaving] = useState(false);
-  const [gratSaved, setGratSaved] = useState(false);
-  const gratEntries = entries.filter(e => e.mood_tag === 'gratitude');
+  const [gratitudeSaving, setGratitudeSaving] = useState(false);
+  const [gratitudeSaved, setGratitudeSaved] = useState(false);
+  const gratitudeEntries = entries.filter(e => e.mood_tag === 'gratitude');
 
   useEffect(() => {
     apiFetch('/api/journal/entries')
@@ -68,7 +74,7 @@ export default function Journal() {
   const handleGratitudeSave = async () => {
     const lines = [gratitude1, gratitude2, gratitude3].filter(l => l.trim());
     if (lines.length === 0) return;
-    setGratSaving(true);
+    setGratitudeSaving(true);
     try {
       const res = await apiFetch('/api/journal/entry', {
         method: 'POST',
@@ -81,13 +87,23 @@ export default function Journal() {
         const newEntry = await res.json();
         setEntries(prev => [newEntry, ...prev]);
         setGratitude1(''); setGratitude2(''); setGratitude3('');
-        setGratSaved(true);
-        setTimeout(() => setGratSaved(false), 3000);
+        setGratitudeSaved(true);
+        setTimeout(() => setGratitudeSaved(false), 3000);
       }
-    } finally { setGratSaving(false); }
+    } finally { setGratitudeSaving(false); }
   };
 
   const filtered = filterTag ? entries.filter(e => e.mood_tag === filterTag && e.mood_tag !== 'gratitude') : entries.filter(e => e.mood_tag !== 'gratitude');
+
+  const fetchInsights = async () => {
+    setLoadingInsight(true);
+    try {
+      const res = await apiFetch('/api/journal/insights');
+      if (res.ok) setInsight(await res.json());
+    } finally {
+      setLoadingInsight(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -144,22 +160,22 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button onClick={handleGratitudeSave} disabled={gratSaving || (!gratitude1.trim() && !gratitude2.trim() && !gratitude3.trim())}
+              <button onClick={handleGratitudeSave} disabled={gratitudeSaving || (!gratitude1.trim() && !gratitude2.trim() && !gratitude3.trim())}
                 className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2
-                  ${gratSaved ? 'bg-success/20 text-success border border-success/30'
+                  ${gratitudeSaved ? 'bg-success/20 text-success border border-success/30'
                     : (!gratitude1.trim() && !gratitude2.trim() && !gratitude3.trim()) ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
                     : 'bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/20'}`}>
-                {gratSaved ? <><CheckCircle2 size={16} /> Saved!</>
-                  : gratSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+                {gratitudeSaved ? <><CheckCircle2 size={16} /> Saved!</>
+                  : gratitudeSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
                   : <><Heart size={16} /> Save Gratitudes</>}
               </button>
             </Card>
 
-            {gratEntries.length > 0 && (
+            {gratitudeEntries.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Past Gratitudes</h2>
                 <div className="space-y-3">
-                  {gratEntries.slice(0, 5).map(entry => (
+                  {gratitudeEntries.slice(0, 5).map(entry => (
                     <Card key={entry.id} className="p-4">
                       <div className="flex items-center gap-1.5 text-xs text-text-muted mb-2">
                         <Clock size={11} />
@@ -232,6 +248,43 @@ export default function Journal() {
               </button>
             ))}
           </div>
+        )}
+
+        {/* AI Insight Button & Card */}
+        {entries.length >= 3 && !insight && activeTab === 'journal' && (
+          <button onClick={fetchInsights} disabled={loadingInsight}
+            className="w-full py-3.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold text-sm transition-all flex items-center justify-center gap-2 mb-4">
+            {loadingInsight ? <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> : <Sparkles size={16} />}
+            {loadingInsight ? 'Analyzing your entries...' : 'Get AI Psychological Reflection'}
+          </button>
+        )}
+
+        {insight && activeTab === 'journal' && (
+          <Card className="p-5 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 relative mb-4">
+            <button onClick={() => setInsight(null)} className="absolute top-4 right-4 text-text-muted hover:text-text">
+              <X size={16} />
+            </button>
+            <h3 className="font-heading font-semibold text-primary flex items-center gap-2 mb-3">
+              <Sparkles size={16} /> AI Reflection
+            </h3>
+            <p className="text-sm text-text leading-relaxed mb-4">{insight.summary}</p>
+            
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Detected Patterns</p>
+              <ul className="space-y-1.5">
+                {insight.patterns.map((p, i) => (
+                  <li key={i} className="text-xs text-text-muted flex items-start gap-1.5">
+                    <span className="text-primary/70 mt-0.5">•</span> {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div className="bg-surface/60 rounded-lg p-3 border border-border">
+              <p className="text-xs font-semibold text-primary mb-1">CBT Advice</p>
+              <p className="text-sm text-text leading-relaxed">{insight.advice}</p>
+            </div>
+          </Card>
         )}
 
         {/* Entries List */}

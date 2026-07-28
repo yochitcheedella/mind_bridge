@@ -5,11 +5,16 @@ from passlib.context import CryptContext
 import random
 
 import os
+from cryptography.fernet import Fernet
 
 # TODO: In production, load SECRET_KEY from environment variable
 SECRET_KEY = os.getenv("SECRET_KEY", "mindbridge-secret-key-change-in-production-use-env-var")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+
+# Fernet key must be 32 URL-safe base64-encoded bytes. In production, provide ENCRYPTION_KEY in .env
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", Fernet.generate_key().decode("utf-8"))
+fernet = Fernet(ENCRYPTION_KEY.encode("utf-8"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=13)
 
@@ -54,3 +59,17 @@ def decode_token(token: str) -> Optional[dict]:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         return None
+
+
+def encrypt_data(plain_text: str) -> str:
+    """Encrypts plain text string using symmetric AES-128 (Fernet)."""
+    if not plain_text:
+        return ""
+    return fernet.encrypt(plain_text.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_data(encrypted_text: str) -> str:
+    """Decrypts ciphertext string using symmetric AES-128 (Fernet)."""
+    if not encrypted_text:
+        return ""
+    return fernet.decrypt(encrypted_text.encode("utf-8")).decode("utf-8")

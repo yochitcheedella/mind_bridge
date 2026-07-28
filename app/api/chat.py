@@ -6,6 +6,7 @@ import asyncio
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.core.alert_manager import alert_manager
 from app.models.chat import ChatMessage
 from app.models.user import Student
 from app.core.ai_service import analyze_message_with_history
@@ -169,6 +170,14 @@ async def chat_endpoint(websocket: WebSocket, token: str = Query(...), db: Sessi
                         fcm_token=mock_psychologist_fcm_token,
                         data={"alert_id": str(new_alert.id), "student_id": str(student.id)}
                     )
+
+                    
+                    # Real-time WebSocket broadcast to clinical staff
+                    asyncio.create_task(alert_manager.broadcast_alert({
+                        "type": "CRITICAL_ALERT",
+                        "student_id": student.anonymous_token,
+                        "risk_reason": analysis.emotion_analysis[0] if analysis.emotion_analysis else "Critical Risk"
+                    }))
 
             db.commit()
 

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import asyncio
 
 from app.core.database import get_db
+from app.core.alert_manager import alert_manager
 from app.models.user import Student
 from app.models.alert import RiskAlert
 from app.models.mood import MoodLog
@@ -52,6 +54,22 @@ def get_active_alerts(db: Session = Depends(get_db)):
     }
 
 
+@router.websocket("/ws/alerts")
+async def alerts_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time clinician alerts.
+    In a real app, you would authenticate the clinician here.
+    """
+    await alert_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, wait for incoming messages if any
+            # The client doesn't need to send anything, but we must handle disconnects
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        alert_manager.disconnect(websocket)
+
+
 @router.get("/analytics")
 def get_campus_analytics(db: Session = Depends(get_db)):
     """
@@ -70,6 +88,21 @@ def get_campus_analytics(db: Session = Depends(get_db)):
 
     avg_burnout = db.query(func.avg(Student.burnout_probability)).scalar() or 0.0
 
+    # Department Data (stress = avg risk score * 100)
+    dept_stats = (
+        db.query(Student.department, func.avg(Student.risk_score).label("avg_risk"))
+        .filter(Student.department != None)
+        .group_by(Student.department)
+        .all()
+    )
+    
+    department_data = [
+        {"name": d.department, "stress": round(float(d.avg_risk) * 100)}
+        for d in dept_stats
+    ]
+    # Sort descending by stress
+    department_data.sort(key=lambda x: x["stress"], reverse=True)
+
     return {
         "total_students": total_students,
         "average_risk_score": round(float(avg_risk), 3),
@@ -78,4 +111,5 @@ def get_campus_analytics(db: Session = Depends(get_db)):
         "average_mood_score": avg_mood,
         "average_burnout_probability": round(float(avg_burnout), 3),
         "campus_wellbeing_percent": max(0, round((1 - float(avg_risk)) * 100)),
+        "department_data": department_data,
     }
