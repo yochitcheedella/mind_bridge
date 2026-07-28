@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Shield, Mail, Lock, Eye, EyeOff, ChevronRight, Sparkles, Check } from 'lucide-react';
-import { setAuth } from '../utils/auth';
+import { setAuth, API_URL } from '../utils/auth';
 
 const DEPARTMENTS = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Chemical', 'Biotechnology', 'Physics', 'Mathematics', 'Management', 'Medicine', 'Other'];
 
@@ -20,7 +20,7 @@ export default function Register() {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    fetch('http://localhost:8000/api/auth/universities')
+    fetch(`${API_URL}/api/auth/universities`)
       .then(res => res.json())
       .then(data => {
         setUniversities(data);
@@ -34,7 +34,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:8000/api/auth/register', {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, department, year, university_id: universityId === '' ? null : universityId }),
@@ -52,7 +52,7 @@ export default function Register() {
         const { requestFirebaseNotificationPermission } = await import('../utils/firebase');
         const token = await requestFirebaseNotificationPermission();
         if (token) {
-          await fetch('http://localhost:8000/api/auth/fcm-token', {
+          await fetch(`${API_URL}/api/auth/fcm-token`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Shield, AlertTriangle, Clock, ChevronRight, Activity, Filter, CheckCircle2, X, Send, Brain, ShieldAlert, FileText, TrendingUp, Bell, Plus, Calendar } from 'lucide-react';
-import { apiFetch } from '../utils/auth';
+import { apiFetch, API_URL } from '../utils/auth';
 import { IdentityRequestModal } from '../components/clinical/IdentityRequestModal';
 
 interface RiskStudent {
@@ -72,7 +72,7 @@ export default function PsychologistDashboard() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const fetchQueue = () => {
-    fetch('http://localhost:8000/api/risk/queue')
+    fetch(`${API_URL}/api/risk/queue`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setQueue(data); })
       .catch(() => {})
@@ -80,7 +80,7 @@ export default function PsychologistDashboard() {
   };
 
   const fetchAppointments = () => {
-    fetch('http://localhost:8000/api/appointments/all')
+    fetch(`${API_URL}/api/appointments/all`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setAppointments(data); })
       .catch(() => {});
@@ -95,7 +95,8 @@ export default function PsychologistDashboard() {
     }, 10000); // refresh queue every 10s
     
     // Connect to real-time clinical alerts
-    const ws = new WebSocket('ws://localhost:8000/api/risk/ws/alerts');
+    const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+    const ws = new WebSocket(`${wsUrl}/api/risk/ws/alerts`);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -119,15 +120,15 @@ export default function PsychologistDashboard() {
 
   useEffect(() => {
     if (selectedCase) {
-      fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}`)
+      fetch(`${API_URL}/api/psychologist/student/${selectedCase}`)
         .then(r => r.json())
         .then(data => setCaseDetails(data))
         .catch(console.error);
       // Load case notes
-      fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/notes`)
+      fetch(`${API_URL}/api/psychologist/student/${selectedCase}/notes`)
         .then(r => r.json()).then(data => { if (Array.isArray(data)) setNotes(data); }).catch(() => {});
       // Load follow-ups
-      fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/followup`)
+      fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup`)
         .then(r => r.json()).then(data => { if (Array.isArray(data)) setFollowUps(data); }).catch(() => {});
       setCaseTab('chat');
     } else {
@@ -148,7 +149,7 @@ export default function PsychologistDashboard() {
     if (!counselorMessage.trim() || !selectedCase) return;
     setSending(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/chat`, {
+      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: counselorMessage })
@@ -156,7 +157,7 @@ export default function PsychologistDashboard() {
       if (res.ok) {
         setCounselorMessage('');
         // Refresh details to show the new message
-        const data = await (await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}`)).json();
+        const data = await (await fetch(`${API_URL}/api/psychologist/student/${selectedCase}`)).json();
         setCaseDetails(data);
       }
     } catch (err) {
@@ -169,7 +170,7 @@ export default function PsychologistDashboard() {
   const handleResolve = async () => {
     if (!selectedCase) return;
     try {
-      await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/resolve`, { method: 'POST' });
+      await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/resolve`, { method: 'POST' });
       setSelectedCase(null);
       fetchQueue();
     } catch (err) {
@@ -181,7 +182,7 @@ export default function PsychologistDashboard() {
     if (!newNote.trim() || !selectedCase) return;
     setSavingNote(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/notes`, {
+      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/notes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newNote.trim() }),
       });
@@ -197,7 +198,7 @@ export default function PsychologistDashboard() {
     if (!followupDate || !selectedCase) return;
     setSavingFollowup(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/followup`, {
+      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ due_date: followupDate, reason: followupReason || null }),
       });
@@ -211,7 +212,7 @@ export default function PsychologistDashboard() {
 
   const handleCompleteFollowup = async (id: number) => {
     if (!selectedCase) return;
-    await fetch(`http://localhost:8000/api/psychologist/student/${selectedCase}/followup/${id}/complete`, { method: 'POST' });
+    await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup/${id}/complete`, { method: 'POST' });
     setFollowUps(prev => prev.map(f => f.id === id ? { ...f, completed: true } : f));
   };
 
@@ -231,7 +232,7 @@ export default function PsychologistDashboard() {
       // If we don't have one in context, we can just use the standard decrypt identity endpoint we had, or we can fetch active alerts. 
       // To keep it simple, we'll use the new decrypt-identity endpoint which works by student alias.
       
-      const res = await fetch(`http://localhost:8000/api/emergency/decrypt-identity/${selectedCase}`, {
+      const res = await fetch(`${API_URL}/api/emergency/decrypt-identity/${selectedCase}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -259,7 +260,7 @@ export default function PsychologistDashboard() {
 
   const handleUpdateApptStatus = async (id: number, status: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/appointments/${id}/status`, {
+      const res = await fetch(`${API_URL}/api/appointments/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })

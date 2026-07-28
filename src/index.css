@@ -7,6 +7,24 @@
 @layer base {
   body {
     @apply bg-background text-text font-sans antialiased;
+    
+    /* Native App Feel Hardening */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior-y: none;
+  }
+  
+  /* Allow typing in inputs */
+  input, textarea, [contenteditable] {
+    user-select: auto;
+    -webkit-user-select: auto;
+  }
+  
+  /* Prevent image dragging */
+  img {
+    -webkit-user-drag: none;
   }
   
   h1, h2, h3, h4, h5, h6 {
