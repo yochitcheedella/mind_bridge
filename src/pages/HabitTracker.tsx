@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Circle, Plus, Flame, Trophy, Trash2, X } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { apiFetch, isLoggedIn } from '../utils/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Habit {
@@ -81,7 +82,8 @@ const s: any = {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HabitTracker() {
   const navigate = useNavigate();
-  const [habits, setHabits] = useState<Habit[]>(loadHabits);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customEmoji, setCustomEmoji] = useState('⭐');
@@ -89,7 +91,39 @@ export default function HabitTracker() {
   const days7 = last7();
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-  useEffect(() => { saveHabits(habits); }, [habits]);
+  useEffect(() => {
+    async function fetchHabits() {
+      if (!isLoggedIn()) {
+        setHabits(loadHabits());
+        setLoaded(true);
+        return;
+      }
+      try {
+        const res = await apiFetch('/api/habits');
+        if (res.ok) {
+          const data = await res.json();
+          setHabits(data);
+        } else {
+          setHabits(loadHabits());
+        }
+      } catch (e) {
+        setHabits(loadHabits());
+      }
+      setLoaded(true);
+    }
+    fetchHabits();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveHabits(habits);
+    if (isLoggedIn()) {
+      apiFetch('/api/habits', {
+        method: 'POST',
+        body: JSON.stringify(habits)
+      }).catch(console.error);
+    }
+  }, [habits, loaded]);
 
   function toggleToday(id: string) {
     setHabits(prev => prev.map(h => {

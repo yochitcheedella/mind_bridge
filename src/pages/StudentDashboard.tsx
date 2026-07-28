@@ -247,7 +247,7 @@ export default function StudentDashboard() {
               {[
                 { label: '📔 Journal', sub: 'Write your thoughts', to: '/journal' },
                 { label: '✅ Habits', sub: 'Build routines', to: '/habits' },
-                { label: '😴 Sleep Log', sub: 'Track rest quality', to: '/mood' },
+                { label: '😴 Sleep Log', sub: 'Track rest quality', to: '/sleep' },
                 { label: '🧠 Assess', sub: 'Screen your wellbeing', to: '/assessments' },
               ].map(({ label, sub, to }) => (
                 <Link key={to + label} to={to}>

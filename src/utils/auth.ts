@@ -8,10 +8,13 @@ export interface AuthState {
   access_token: string;
   anonymous_alias: string;
   student_id: number;
+  primary_color?: string;
 }
 
 const AUTH_KEY = 'mindbridge_auth';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export function getAuth(): AuthState | null {
   try {
@@ -24,10 +27,18 @@ export function getAuth(): AuthState | null {
 
 export function setAuth(state: AuthState): void {
   localStorage.setItem(AUTH_KEY, JSON.stringify(state));
+  if (state.primary_color) {
+    applyPrimaryColor(state.primary_color);
+  }
+}
+
+export function applyPrimaryColor(color: string): void {
+  document.documentElement.style.setProperty('--color-primary', color);
 }
 
 export function clearAuth(): void {
   localStorage.removeItem(AUTH_KEY);
+  document.documentElement.style.removeProperty('--color-primary');
 }
 
 export function isLoggedIn(): boolean {

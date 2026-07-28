@@ -51,28 +51,66 @@ def _mock_llm_analysis(history: List[Dict[str, str]], user_message: str) -> AIAn
                 risk_score=0.75
             )
 
-    # Memory Check Mock
-    if "exam" in text_lower or "test" in text_lower:
+    # Academic Burnout / Stress
+    if any(w in text_lower for w in ["exam", "test", "grade", "assignment", "fail", "stress", "pressure"]):
         return AIAnalysis(
-            response_text="I hear that exams are causing a lot of pressure. Remember earlier we talked about taking things one step at a time? How is your study plan going?",
-            emotion_analysis=["Academic Stress", "Anxiety"],
+            response_text="I hear how much academic pressure you're under right now. Remember, your worth isn't defined by your grades. Would you like to talk about breaking your work down into smaller steps?",
+            emotion_analysis=["Academic Stress", "Anxiety", "Overwhelmed"],
+            risk_classification="yellow",
+            requires_alert=False,
+            risk_score=0.35
+        )
+        
+    # Anxiety / Panic
+    if any(w in text_lower for w in ["panic", "anxious", "anxiety", "can't breathe", "chest hurts", "worry"]):
+        return AIAnalysis(
+            response_text="It sounds like you might be experiencing a lot of anxiety right now. Let's try to take a deep breath together. In for 4 seconds, hold for 4, out for 4... How does your body feel?",
+            emotion_analysis=["Anxiety", "Panic", "Fear"],
+            risk_classification="orange",
+            requires_alert=False,
+            risk_score=0.5
+        )
+        
+    # Fatigue / Sleep deprivation
+    if any(w in text_lower for w in ["tired", "exhausted", "sleep", "can't sleep", "insomnia", "drained"]):
+        return AIAnalysis(
+            response_text="Sleep is so crucial for mental health, and it sounds like you're running on empty. Have you been able to rest at all lately? Don't forget you can log this in the Sleep Tracker.",
+            emotion_analysis=["Fatigue", "Physical Exhaustion"],
+            risk_classification="yellow",
+            requires_alert=False,
+            risk_score=0.25
+        )
+        
+    # Loneliness / Relationship issues
+    if any(w in text_lower for w in ["lonely", "alone", "friend", "breakup", "nobody", "isolated"]):
+        return AIAnalysis(
+            response_text="Feeling isolated can be incredibly heavy. Please know you are not completely alone—I'm here listening to you. Do you want to talk about what's making you feel disconnected?",
+            emotion_analysis=["Loneliness", "Sadness", "Isolation"],
             risk_classification="yellow",
             requires_alert=False,
             risk_score=0.3
         )
     
-    if "better" in text_lower or "good" in text_lower:
+    # Positive / Improved state
+    if any(w in text_lower for w in ["better", "good", "happy", "okay", "thanks", "helpful"]):
         return AIAnalysis(
-            response_text="I'm really glad to hear you're feeling a bit better today! That's wonderful progress.",
-            emotion_analysis=["Relief", "Hope"],
+            response_text="I'm really glad to hear that! Celebrating small victories is so important. I'm always here whenever you need a safe space.",
+            emotion_analysis=["Relief", "Hope", "Calm"],
             risk_classification="green",
             requires_alert=False,
             risk_score=0.05
         )
 
-    # Default fallback
+    # Default fallback with varied empathetic responses
+    fallbacks = [
+        "I'm here for you. Tell me more about how you're feeling right now.",
+        "That sounds like a lot to carry. I'm listening—take your time.",
+        "I appreciate you sharing that with me. How can I best support you in this moment?",
+        "It's completely okay to feel this way. I'm here to hold this safe space for you."
+    ]
+    import random
     return AIAnalysis(
-        response_text="I'm here for you. Tell me more about how you're feeling right now.",
+        response_text=random.choice(fallbacks),
         emotion_analysis=["Neutral", "Seeking Support"],
         risk_classification="green",
         requires_alert=False,
@@ -152,3 +190,70 @@ async def analyze_message_with_history(user_message: str, history: List[Dict[str
         # No API key, use the advanced mock
         await asyncio.sleep(1.0) # Simulate network delay
         return _mock_llm_analysis(history, user_message)
+
+async def generate_recovery_plan(student_context: str) -> dict:
+    """
+    Generates a structured recovery plan based on the student's recent context.
+    Expects a JSON object with title, rationale, and a list of tasks.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    
+    if OPENAI_AVAILABLE and api_key:
+        client = openai.AsyncOpenAI(api_key=api_key)
+        system_prompt = """
+        You are an expert AI clinical psychologist creating a recovery action plan for a student.
+        Based on the provided context (recent moods, chats, journals), create a structured 3-day recovery plan.
+        
+        Output valid JSON exactly matching this schema:
+        {
+            "title": "A short encouraging title (e.g., '3-Day Re-centering Plan')",
+            "rationale": "A compassionate 2-sentence explanation of why this plan was created based on their context.",
+            "tasks": [
+                {
+                    "title": "Actionable task name",
+                    "description": "Short description of how to do it",
+                    "day_number": 1
+                }
+            ]
+        }
+        Generate exactly 3 tasks, one for each day. Make them highly actionable and therapeutic (e.g., breathing, journaling, a walk).
+        """
+        
+        try:
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Student Context:\n{student_context}"}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+                max_tokens=400
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception:
+            pass # Fall through to mock
+
+    # Fallback mock response
+    await asyncio.sleep(1.0)
+    return {
+        "title": "3-Day Reset Plan",
+        "rationale": "Based on your recent feelings of stress and burnout, I've put together a gentle 3-day plan to help you re-center and find your balance.",
+        "tasks": [
+            {
+                "title": "Box Breathing",
+                "description": "Inhale for 4s, hold for 4s, exhale for 4s, hold for 4s. Repeat 5 times.",
+                "day_number": 1
+            },
+            {
+                "title": "Grateful Reflection",
+                "description": "Write down 3 things you were grateful for today.",
+                "day_number": 2
+            },
+            {
+                "title": "Digital Disconnect",
+                "description": "Put your phone away 30 minutes before bed tonight.",
+                "day_number": 3
+            }
+        ]
+    }

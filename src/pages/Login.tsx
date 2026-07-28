@@ -46,7 +46,7 @@ export default function Login() {
         console.warn("FCM setup failed:", fcmErr);
       }
 
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -145,7 +145,7 @@ export default function Login() {
           <div className="mt-4 pt-4 border-t border-border/50">
             <p className="text-xs text-text-muted text-center mb-2 uppercase tracking-wider">Dev Quick Access</p>
             <div className="flex gap-2">
-              <Link to="/" className="flex-1 text-center text-xs py-1.5 rounded-lg bg-surface hover:bg-surface-bright text-text-muted hover:text-text transition-all border border-border">
+              <Link to="/dashboard" className="flex-1 text-center text-xs py-1.5 rounded-lg bg-surface hover:bg-surface-bright text-text-muted hover:text-text transition-all border border-border">
                 Student
               </Link>
               <Link to="/clinical" className="flex-1 text-center text-xs py-1.5 rounded-lg bg-surface hover:bg-surface-bright text-text-muted hover:text-text transition-all border border-border">

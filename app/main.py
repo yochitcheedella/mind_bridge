@@ -4,8 +4,10 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import asyncio
+import os
 import json
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 load_dotenv()
 
@@ -25,6 +27,13 @@ from app.api.emergency import router as emergency_router
 from app.api.community import router as community_router
 from app.api.sleep import router as sleep_router
 from app.api.storage import router as storage_router
+from app.api.habits import router as habits_router
+from app.api.admin import router as admin_router
+from app.api.privacy import router as privacy_router
+from app.api.onboarding import router as onboarding_router
+from app.api.plan import router as plan_router
+from app.api.notifications import router as notifications_router
+from app.api.saas import router as saas_router
 
 # ── Create all tables ──────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
@@ -41,9 +50,12 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
+origins_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+origins = [origin.strip() for origin in origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -70,6 +82,16 @@ app.include_router(emergency_router)
 app.include_router(community_router)
 app.include_router(sleep_router)
 app.include_router(storage_router)
+app.include_router(habits_router)
+app.include_router(admin_router)
+app.include_router(privacy_router)
+app.include_router(onboarding_router)
+app.include_router(plan_router)
+app.include_router(notifications_router)
+app.include_router(saas_router)
+
+# ── Metrics ────────────────────────────────────────────────────────────────────
+Instrumentator().instrument(app).expose(app)
 
 # ── Health Check ───────────────────────────────────────────────────────────────
 @app.get("/api/health", tags=["system"])
