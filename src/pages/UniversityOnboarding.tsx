@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Building, Palette, CheckCircle2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { API_URL } from '../utils/auth';
 
 export default function UniversityOnboarding() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function UniversityOnboarding() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:8000/api/onboarding/university', {
+      const res = await fetch(`${API_URL}/api/onboarding/university`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

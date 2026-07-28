@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, ChevronRight, ArrowLeft, Video, QrCode } from 'lucide-react';
-import { apiFetch } from '../utils/auth';
+import { apiFetch, API_URL } from '../utils/auth';
 
 interface Slot {
   psychologist_id: number;
@@ -41,7 +41,7 @@ export default function Appointments() {
   const [bookedMsg, setBookedMsg] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/appointments/slots')
+    fetch(`${API_URL}/api/appointments/slots`)
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setSlots(d); }).finally(() => setLoadingSlots(false));
     apiFetch('/api/appointments/mine')
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setMyAppts(d); }).finally(() => setLoadingMine(false));

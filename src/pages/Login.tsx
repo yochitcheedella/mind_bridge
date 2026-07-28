@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Shield, Mail, Lock, Eye, EyeOff, ChevronRight } from 'lucide-react';
-import { setAuth } from '../utils/auth';
+import { setAuth, API_URL } from '../utils/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -16,7 +16,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:8000/api/auth/login', {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -33,7 +33,7 @@ export default function Login() {
         const { requestFirebaseNotificationPermission } = await import('../utils/firebase');
         const token = await requestFirebaseNotificationPermission();
         if (token) {
-          await fetch('http://localhost:8000/api/auth/fcm-token', {
+          await fetch(`${API_URL}/api/auth/fcm-token`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
