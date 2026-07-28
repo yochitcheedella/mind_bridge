@@ -21,3 +21,5 @@ services:
         sync: false
       - key: FIREBASE_CREDENTIALS_JSON
         sync: false
+      - key: CORS_ORIGINS
+        value: "*"
