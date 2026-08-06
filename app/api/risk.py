@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import asyncio
@@ -20,9 +20,9 @@ def get_risk_queue(db: Session = Depends(get_db)):
     """
     students = (
         db.query(Student)
-        .filter(Student.risk_score > 0.0)
+        .filter(Student.risk_score >= 0.0)
         .order_by(Student.risk_score.desc())
-        .limit(20)
+        .limit(50)
         .all()
     )
     return [
@@ -38,20 +38,36 @@ def get_risk_queue(db: Session = Depends(get_db)):
 
 @router.get("/alerts")
 def get_active_alerts(db: Session = Depends(get_db)):
-    """Returns the count and list of active risk alerts."""
+    """Returns the count and list of active risk alerts enriched with student alias and risk score."""
     alerts = db.query(RiskAlert).filter(RiskAlert.status == "active").all()
+    enriched = []
+    for a in alerts:
+        student = db.query(Student).filter(Student.id == a.student_id).first()
+        enriched.append({
+            "id": a.id,
+            "risk_level": a.risk_level,
+            "triggered_by": a.triggered_by,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "student_alias": student.anonymous_token if student else "Unknown",
+            "risk_score": round(student.risk_score, 3) if student else 0.0,
+            "department": student.department if student else "Unknown",
+            "year": student.year if student else 0,
+        })
     return {
-        "count": len(alerts),
-        "alerts": [
-            {
-                "id": a.id,
-                "risk_level": a.risk_level,
-                "triggered_by": a.triggered_by,
-                "created_at": a.created_at.isoformat() if a.created_at else None,
-            }
-            for a in alerts
-        ],
+        "count": len(enriched),
+        "alerts": enriched,
     }
+
+
+@router.post("/alerts/{alert_id}/resolve")
+def resolve_risk_alert(alert_id: int, db: Session = Depends(get_db)):
+    """Resolves a specific risk alert."""
+    alert = db.query(RiskAlert).filter(RiskAlert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+    alert.status = "resolved"
+    db.commit()
+    return {"status": "success", "message": "Alert resolved."}
 
 
 @router.websocket("/ws/alerts")

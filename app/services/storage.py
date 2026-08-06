@@ -1,50 +1,82 @@
 import os
-from supabase import create_client, Client
+from dotenv import load_dotenv
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+try:
+    from supabase import create_client, Client
+except ImportError:
+    create_client = None
+    Client = None
 
-if SUPABASE_URL and SUPABASE_KEY:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    SUPABASE_ENABLED = True
-else:
-    supabase = None
-    SUPABASE_ENABLED = False
+load_dotenv()
 
+UPLOADS_DIR = "uploads"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-def upload_file(bucket_name: str, file_path: str, file_bytes: bytes, content_type: str = "application/octet-stream") -> str:
-    """
-    Uploads a file to a Supabase Storage bucket.
-    Returns the public URL of the uploaded file.
-    """
-    if not SUPABASE_ENABLED:
-        print(f"[MOCK SUPABASE] Uploading file to bucket '{bucket_name}': {file_path}")
-        return f"mock_url_for_{file_path}"
-    
+# Supabase Configuration for Initial Version at VIT
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hweyomasaofopsgirqvs.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3ZXlvbWFzYW9mb3BzZ2lycXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNjIzMTUsImV4cCI6MjEwMDczODMxNX0.s4BdO6_-ip2sVGQJzs8eDQFOEAwCSkLjU7YPXfTHVp4")
+
+supabase_client = None
+if create_client and SUPABASE_URL and SUPABASE_KEY:
     try:
-        res = supabase.storage.from_(bucket_name).upload(
-            file_path,
-            file_bytes,
-            {"content-type": content_type}
-        )
-        # Assuming the bucket is public, generate a public URL
-        public_url = supabase.storage.from_(bucket_name).get_public_url(file_path)
-        return public_url
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        print(f"Error uploading file to Supabase: {e}")
+        print(f"Notice: Supabase client initialization failed ({e}), defaulting to local volume fallback.")
+
+
+def upload_file(folder: str, file_path: str, file_bytes: bytes, content_type: str = "application/octet-stream") -> str:
+    """
+    Saves an uploaded file to Supabase Storage for the initial version.
+    Automatically falls back to local server volume under the 'uploads' directory if cloud storage is unavailable.
+    """
+    # 1. Attempt Supabase Storage upload
+    if supabase_client:
+        try:
+            supabase_client.storage.from_(folder).upload(
+                file_path,
+                file_bytes,
+                file_options={"content-type": content_type, "upsert": "true"}
+            )
+            public_url = supabase_client.storage.from_(folder).get_public_url(file_path)
+            if public_url:
+                return public_url
+        except Exception as e:
+            print(f"Supabase Storage upload error ({e}). Saving directly to local VIT server volume.")
+            
+    # 2. Local Server Volume Storage Fallback
+    try:
+        full_folder_path = os.path.join(UPLOADS_DIR, folder, os.path.dirname(file_path))
+        os.makedirs(full_folder_path, exist_ok=True)
+        
+        destination = os.path.join(UPLOADS_DIR, folder, file_path)
+        with open(destination, "wb") as f:
+            f.write(file_bytes)
+            
+        # Return relative URL path that can be served by static file middleware
+        return f"/uploads/{folder}/{file_path}".replace("\\", "/")
+    except Exception as e:
+        print(f"Error saving uploaded file locally: {e}")
         return ""
 
 
-def download_file(bucket_name: str, file_path: str) -> bytes:
+def download_file(folder: str, file_path: str) -> bytes:
     """
-    Downloads a file from a Supabase Storage bucket.
+    Reads a file from Supabase Storage or the local 'uploads' directory.
     """
-    if not SUPABASE_ENABLED:
-        return b"mock file content"
-        
+    if supabase_client:
+        try:
+            data = supabase_client.storage.from_(folder).download(file_path)
+            if data:
+                return data
+        except Exception as e:
+            pass
+            
     try:
-        res = supabase.storage.from_(bucket_name).download(file_path)
-        return res
+        source = os.path.join(UPLOADS_DIR, folder, file_path)
+        if not os.path.exists(source):
+            return b""
+        with open(source, "rb") as f:
+            return f.read()
     except Exception as e:
-        print(f"Error downloading file from Supabase: {e}")
+        print(f"Error reading file locally: {e}")
         return b""

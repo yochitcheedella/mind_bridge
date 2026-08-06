@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Shield, AlertTriangle, Clock, ChevronRight, Activity, Filter, CheckCircle2, X, Send, Brain, ShieldAlert, FileText, TrendingUp, Bell, Plus, Calendar } from 'lucide-react';
@@ -33,11 +34,15 @@ interface CaseDetails {
 interface CaseNote { id: number; content: string; created_at: string; }
 interface FollowUpItem { id: number; due_date: string; reason: string | null; completed: boolean; }
 interface DecryptedIdentity { name: string; phone: string; email: string; }
+interface ActiveAlert { id: number; risk_level: string; triggered_by: string; created_at: string; student_alias: string; risk_score: number; department: string; year: number; }
 
 export default function PsychologistDashboard() {
+  const location = useLocation();
   const [queue, setQueue] = useState<RiskStudent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCase, setSelectedCase] = useState<string | null>(null);
+  const [selectedCase, setSelectedCase] = useState<string | null>(
+    location.state && (location.state as any).selectedAlias ? (location.state as any).selectedAlias : null
+  );
   const [caseDetails, setCaseDetails] = useState<CaseDetails | null>(null);
   const [counselorMessage, setCounselorMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -57,9 +62,13 @@ export default function PsychologistDashboard() {
   const [followupReason, setFollowupReason] = useState('');
   const [savingFollowup, setSavingFollowup] = useState(false);
 
-  // Appointments state
-  const [view, setView] = useState<'queue' | 'appointments'>('queue');
+  // Appointments & SOS view state
+  const [view, setView] = useState<'queue' | 'appointments' | 'sos'>('queue');
+  const [activeAlerts, setActiveAlerts] = useState<ActiveAlert[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [rescheduleId, setRescheduleId] = useState<number | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
 
   // Real-time alerts state
   const [criticalAlert, setCriticalAlert] = useState<{ alert_id?: number, student_id: string, risk_reason: string } | null>(null);
@@ -80,19 +89,40 @@ export default function PsychologistDashboard() {
   };
 
   const fetchAppointments = () => {
-    fetch(`${API_URL}/api/appointments/all`)
+    apiFetch('/api/appointments/all')
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setAppointments(data); })
       .catch(() => {});
   };
 
+  const fetchAlerts = () => {
+    fetch(`${API_URL}/api/risk/alerts`)
+      .then(r => r.json())
+      .then(data => { if (data && Array.isArray(data.alerts)) setActiveAlerts(data.alerts); })
+      .catch(() => {});
+  };
+
+  const handleResolveAlert = async (alertId: number) => {
+    try {
+      await fetch(`${API_URL}/api/risk/alerts/${alertId}/resolve`, { method: 'POST' });
+      fetchAlerts();
+      fetchQueue();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchQueue();
     fetchAppointments();
-    const interval = setInterval(() => {
+    fetchAlerts();
+    const qInterval = setInterval(() => {
       fetchQueue();
+      fetchAlerts();
+    }, 10000); // refresh queue and alerts every 10s
+    const aInterval = setInterval(() => {
       if (view === 'appointments') fetchAppointments();
-    }, 10000); // refresh queue every 10s
+    }, 2000); // check local appointments every 2s
     
     // Connect to real-time clinical alerts
     const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -103,9 +133,11 @@ export default function PsychologistDashboard() {
         if (data.type === 'CRITICAL_ALERT') {
           setCriticalAlert({ student_id: data.student_id, risk_reason: data.risk_reason });
           fetchQueue();
+          fetchAlerts();
         } else if (data.type === 'EMERGENCY_SOS') {
           setCriticalAlert({ alert_id: data.alert_id, student_id: data.student_alias, risk_reason: data.message });
           fetchQueue();
+          fetchAlerts();
         }
       } catch (e) {
         console.error(e);
@@ -113,7 +145,8 @@ export default function PsychologistDashboard() {
     };
     
     return () => {
-      clearInterval(interval);
+      clearInterval(qInterval);
+      clearInterval(aInterval);
       ws.close();
     };
   }, []);
@@ -216,61 +249,27 @@ export default function PsychologistDashboard() {
     setFollowUps(prev => prev.map(f => f.id === id ? { ...f, completed: true } : f));
   };
 
-  const handleEscalate = async () => {
-    if (!selectedCase) return;
-    if (escalateConfirmText !== 'ESCALATE') {
-      alert('You must type ESCALATE to confirm.');
-      return;
-    }
-    
-    setEscalating(true);
+  const handleUpdateApptStatus = async (id: number, status: string, newTime?: string) => {
     try {
-      // In a real app, this would use actual psychologist tokens.
-      // If we don't have a specific alert_id, we can fallback to decrypt identity endpoint, but for this workflow we assume the new escalate endpoint is called.
-      // We will just use the decrypt endpoint for simplicity if no alert_id is bound, or call a specific escalate if we had it.
-      // Since we just built `/api/emergency/{alert_id}/escalate`, we need the alert_id. 
-      // If we don't have one in context, we can just use the standard decrypt identity endpoint we had, or we can fetch active alerts. 
-      // To keep it simple, we'll use the new decrypt-identity endpoint which works by student alias.
-      
-      const res = await fetch(`${API_URL}/api/emergency/decrypt-identity/${selectedCase}`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-emergency-auth': 'super-secret-committee-token'
-        },
-        body: JSON.stringify({ reason: 'Campus Security Escalation via Dashboard' })
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setDecryptedIdentity(data.identity);
-        setEscalateModalOpen(false);
-      } else {
-        const err = await res.json();
-        alert(`Failed to escalate: ${err.detail || 'Unauthorized'}`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error escalating to Campus Security.");
-    } finally {
-      setEscalating(false);
-    }
-  };
-
-
-  const handleUpdateApptStatus = async (id: number, status: string) => {
-    try {
-      const res = await fetch(`${API_URL}/api/appointments/${id}/status`, {
+      const res = await apiFetch(`/api/appointments/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, new_time: newTime })
       });
-      if (res.ok) fetchAppointments();
-    } catch (e) { console.error(e); }
+      if (res.ok) {
+        fetchAppointments();
+        if (status === 'rescheduled') {
+          setRescheduleId(null);
+          setRescheduleDate('');
+          setRescheduleTime('');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col relative">
+    <div className="bg-canvas-global text-on-surface font-body-md antialiased min-h-screen flex selection:bg-interactive-primary selection:text-white">
       <IdentityRequestModal 
         isOpen={escalateModalOpen}
         onClose={() => setEscalateModalOpen(false)}
@@ -282,22 +281,22 @@ export default function PsychologistDashboard() {
 
       {/* Critical Alert Overlay */}
       {criticalAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-          <Card className="max-w-md w-full m-4 p-6 border-2 border-error bg-surface shadow-2xl">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="glass-panel max-w-md w-full m-4 p-6 border-2 border-error">
             <div className="flex items-center gap-3 text-error mb-4">
               <ShieldAlert size={32} className="animate-pulse" />
-              <h2 className="font-heading font-bold text-xl uppercase tracking-wider">Critical Risk Detected</h2>
+              <h2 className="font-h4 font-bold text-xl uppercase tracking-wider">Critical Risk Detected</h2>
             </div>
-            <p className="text-sm text-text mb-2">
+            <p className="text-sm text-on-surface mb-2">
               The AI Guide has just flagged a critical risk for student <strong>{criticalAlert.student_id}</strong>.
             </p>
-            <p className="text-xs font-mono bg-error/10 text-error p-3 rounded-lg mb-6 border border-error/20">
+            <p className="text-xs font-mono-data bg-error-container/20 text-error p-3 rounded-lg mb-6 border border-error/30">
               Reason: {criticalAlert.risk_reason}
             </p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setCriticalAlert(null)}
-                className="flex-1 py-2.5 rounded-lg border border-border text-sm font-semibold hover:bg-surface-bright transition-colors"
+                className="flex-1 py-2.5 rounded-lg border border-border-structural text-sm font-semibold hover:bg-surface-container transition-colors"
               >
                 Dismiss
               </button>
@@ -308,386 +307,612 @@ export default function PsychologistDashboard() {
                 }}
                 className="flex-1 py-2.5 rounded-lg bg-error text-white text-sm font-bold hover:bg-error/90 transition-colors shadow-lg shadow-error/20"
               >
-                Investigate Immediately
+                Investigate
               </button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-surface-dim/80 backdrop-blur-xl border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      {/* SideNavBar from Stitch (Desktop only) */}
+      <nav className="h-screen w-64 fixed left-0 top-0 bg-panel-low border-r border-border-structural hidden md:flex flex-col py-6 px-4 z-40">
+        <div className="mb-8 flex items-center gap-3 px-2 mt-2">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-interactive-primary to-secondary flex items-center justify-center shrink-0 shadow-md shadow-interactive-primary/30">
+            <span className="material-symbols-outlined text-white text-[20px]">psychology</span>
+          </div>
           <div>
-            <h1 className="font-heading font-bold text-xl flex items-center gap-2">
-              <Shield size={20} className="text-primary" /> MindBridge Clinical
-            </h1>
-            <p className="text-xs text-text-muted mt-0.5">Real-time Risk Triage Queue</p>
-          </div>
-          
-          <div className="flex bg-surface-bright rounded-xl p-1 shadow-inner border border-border">
-            <button onClick={() => { setView('queue'); fetchQueue(); }}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
-                ${view === 'queue' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
-              <ShieldAlert size={16} /> Triage Queue
-            </button>
-            <button onClick={() => { setView('appointments'); fetchAppointments(); }}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
-                ${view === 'appointments' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
-              <Calendar size={16} /> Appointments
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-text-muted bg-surface-bright px-3 py-1.5 rounded-lg border border-border">
-              <Activity size={14} className="text-primary" />
-              Live Monitoring
-            </span>
+            <h1 className="font-heading text-lg font-black text-white leading-tight">MindBridge AI</h1>
+            <p className="text-xs text-on-surface-variant font-mono uppercase tracking-wider">Clinical Portal</p>
           </div>
         </div>
-      </header>
+        <div className="flex-1 space-y-2">
+          <button onClick={() => { setView('queue'); setSelectedCase(null); }} className={`w-full flex items-center gap-3 ${view === 'queue' && !selectedCase ? 'bg-surface-container-high text-secondary-fixed font-bold border border-interactive-primary/30 shadow-sm' : 'text-on-surface-variant hover:bg-surface-container font-medium'} rounded-xl px-4 py-3 transition-all group`}>
+            <span className="material-symbols-outlined text-[20px]" style={view === 'queue' && !selectedCase ? {fontVariationSettings: "'FILL' 1"} : {}}>dashboard</span>
+            <span className="text-sm">Clinical Dashboard</span>
+          </button>
+          <button onClick={() => { setView('appointments'); setSelectedCase(null); }} className={`w-full flex items-center gap-3 ${view === 'appointments' && !selectedCase ? 'bg-surface-container-high text-secondary-fixed font-bold border border-interactive-primary/30 shadow-sm' : 'text-on-surface-variant hover:bg-surface-container font-medium'} rounded-xl px-4 py-3 transition-all group`}>
+            <span className="material-symbols-outlined text-[20px]" style={view === 'appointments' && !selectedCase ? {fontVariationSettings: "'FILL' 1"} : {}}>event</span>
+            <span className="text-sm">Appointments</span>
+          </button>
+        </div>
+        <div className="mt-auto pt-6 border-t border-border-internal space-y-2">
+          <button
+            onClick={() => { setView('sos'); setSelectedCase(null); }}
+            className={`w-full ${view === 'sos' && !selectedCase ? 'bg-rose-600 text-white font-black border-2 border-rose-400 shadow-lg shadow-rose-600/40' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'} rounded-xl px-4 py-3 flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-all relative`}
+          >
+            <span className="material-symbols-outlined text-[18px]">emergency</span>
+            <span>Emergency SOS Hub</span>
+            {activeAlerts.length > 0 && (
+              <span className="ml-auto bg-white text-rose-700 font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow animate-pulse">
+                {activeAlerts.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8 flex gap-6 animate-fade-in relative">
-        {view === 'appointments' ? (
-          <div className="w-full">
-            <h2 className="font-heading font-semibold text-lg flex items-center gap-2 mb-6">
-              Calendar & Appointments <Badge variant="default" className="bg-primary/20 text-primary">{appointments.length}</Badge>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {appointments.length === 0 ? (
-                <div className="col-span-full text-center py-20 text-text-muted">No appointments scheduled.</div>
-              ) : (
-                appointments.map(appt => {
+      <div className="ml-0 md:ml-64 flex-1 flex flex-col min-h-screen relative">
+        {/* TopAppBar */}
+        <header className="docked full-width top-0 sticky z-30 bg-background/90 backdrop-blur-xl border-b border-border-internal flex justify-between items-center py-3 px-4 sm:px-6 min-h-16 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-interactive-primary to-secondary flex md:hidden items-center justify-center shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-white text-[18px]">psychology</span>
+            </div>
+            <h2 className="text-base sm:text-lg font-heading font-black text-white tracking-tight">Clinical Portal</h2>
+            <div className="hidden sm:block h-4 w-px bg-border-structural"></div>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-6">
+            {activeAlerts.length > 0 || queue.some(q => q.risk_score >= 0.8) ? (
+              <div className="hidden sm:flex items-center gap-2 bg-error-container/20 px-3 py-1.5 rounded-full border border-error/40 shadow-sm shadow-error/20">
+                <div className="w-2 h-2 rounded-full bg-error animate-pulse"></div>
+                <span className="text-[11px] font-mono font-extrabold text-error uppercase tracking-wider">Crisis Mode Active</span>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-2 bg-emerald-500/15 px-3 py-1.5 rounded-full border border-emerald-500/30">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span className="text-[11px] font-mono font-extrabold text-emerald-400 uppercase tracking-wider">System Normal</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <button className="p-2.5 hover:bg-surface-container rounded-xl transition-colors relative border border-transparent hover:border-border-structural">
+                <span className="material-symbols-outlined">notifications</span>
+                {queue.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-background animate-pulse"></span>}
+              </button>
+              <button className="p-2.5 hover:bg-surface-container rounded-xl transition-colors border border-transparent hover:border-border-structural">
+                <span className="material-symbols-outlined">account_circle</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Navigation Tabs (Shown only on screens < md) */}
+        <div className="flex md:hidden bg-surface-container-low border-b border-border-structural p-2 gap-1.5 sticky top-16 z-20 shadow-md backdrop-blur-lg">
+          <button onClick={() => { setView('queue'); setSelectedCase(null); }} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-heading font-bold transition-all ${view === 'queue' && !selectedCase ? 'bg-gradient-to-r from-interactive-primary/30 to-secondary/30 text-secondary-fixed border border-interactive-primary/40 shadow-sm' : 'text-on-surface-variant hover:text-white'}`}>
+            <span className="material-symbols-outlined text-[18px]" style={view === 'queue' && !selectedCase ? {fontVariationSettings: "'FILL' 1"} : {}}>dashboard</span>
+            <span>Queue</span>
+          </button>
+          <button onClick={() => { setView('appointments'); setSelectedCase(null); }} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-heading font-bold transition-all ${view === 'appointments' && !selectedCase ? 'bg-gradient-to-r from-interactive-primary/30 to-secondary/30 text-secondary-fixed border border-interactive-primary/40 shadow-sm' : 'text-on-surface-variant hover:text-white'}`}>
+            <span className="material-symbols-outlined text-[18px]" style={view === 'appointments' && !selectedCase ? {fontVariationSettings: "'FILL' 1"} : {}}>event</span>
+            <span>Schedule</span>
+          </button>
+          <button onClick={() => { setView('sos'); setSelectedCase(null); }} className={`flex-1 ${view === 'sos' && !selectedCase ? 'bg-rose-600 text-white border-2 border-rose-400' : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30'} rounded-xl py-2.5 px-2 flex items-center justify-center gap-1 text-xs font-heading font-extrabold shadow-sm relative`}>
+            <span className="material-symbols-outlined text-[18px]">emergency</span>
+            <span>SOS</span>
+            {activeAlerts.length > 0 && (
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+            )}
+          </button>
+        </div>
+
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto space-y-6">
+          {view === 'queue' && !selectedCase && (
+            <>
+              {/* Metrics */}
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+                <div className="glass-panel rounded-xl p-lg shimmer-edge flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-md">
+                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Active Students</span>
+                    <span className="material-symbols-outlined text-interactive-primary text-[20px]">groups</span>
+                  </div>
+                  <div>
+                    <div className="font-h2 text-h2 text-on-surface">1,248</div>
+                    <div className="flex items-center gap-xs mt-1 text-secondary font-medium">
+                      <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                      <span className="font-mono text-xs">2.4% vs last week</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="glass-panel rounded-xl p-lg shimmer-edge flex flex-col justify-between border-error/20 bg-error-container/5 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-b from-error/5 to-transparent pointer-events-none"></div>
+                  <div className="flex justify-between items-start mb-md relative z-10">
+                    <span className="font-label-sm text-label-sm text-error uppercase tracking-wider">High-Risk Alerts</span>
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-error/20">
+                      <span className="material-symbols-outlined text-error text-[16px]">warning</span>
+                    </div>
+                  </div>
+                  <div className="relative z-10">
+                    <div className="font-h2 text-h2 text-error">{queue.filter(q => q.risk_score >= 0.8).length}</div>
+                    <div className="flex items-center gap-xs mt-1 text-on-surface-variant">
+                      <span className="font-mono text-xs text-error font-semibold">+{activeAlerts.length || 2} acute priority</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="glass-panel rounded-xl p-lg shimmer-edge flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-md">
+                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Avg. Resolution Time</span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-[20px]">timer</span>
+                  </div>
+                  <div>
+                    <div className="font-h2 text-h2 text-on-surface">42<span className="text-h4 text-on-surface-variant ml-1">m</span></div>
+                    <div className="flex items-center gap-xs mt-1 text-secondary font-medium">
+                      <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
+                      <span className="font-mono text-xs">5.1% faster ({queue.length} in queue)</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Queue */}
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-start">
+                <div className="lg:col-span-2 glass-panel rounded-xl flex flex-col h-[500px]">
+                  <div className="p-md border-b border-border-internal flex justify-between items-center bg-panel-high/50 rounded-t-xl">
+                    <h3 className="font-h4 text-h4 font-medium flex items-center gap-sm">
+                      <span className="w-2 h-2 rounded-full bg-error"></span>
+                      Urgent Risk Queue
+                    </h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-0">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border-internal bg-surface-container-low/50">
+                          <th className="py-3 px-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">ID</th>
+                          <th className="py-3 px-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Indicator / Dept</th>
+                          <th className="py-3 px-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider w-1/3">Risk Score</th>
+                          <th className="py-3 px-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-body-md text-body-md text-on-surface divide-y divide-border-internal/50">
+                        {queue.map(student => {
+                          const isCritical = student.risk_score >= 0.8;
+                          const riskColor = isCritical ? 'bg-error' : student.risk_score >= 0.5 ? 'bg-tertiary-fixed-dim' : 'bg-primary-fixed-dim';
+                          const riskText = isCritical ? 'text-error' : student.risk_score >= 0.5 ? 'text-tertiary-fixed-dim' : 'text-primary-fixed-dim';
+                          
+                          return (
+                            <tr key={student.anonymous_id} className="hover:bg-surface-container-low transition-colors group">
+                              <td className="py-3 px-md font-mono-data text-on-surface">{student.anonymous_id}</td>
+                              <td className="py-3 px-md text-sm">
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold ${
+                                    isCritical 
+                                      ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' 
+                                      : student.risk_score >= 0.5 
+                                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
+                                      : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                  }`}>
+                                    <span className="w-1.5 h-1.5 rounded-full fill-current bg-current animate-pulse"></span>
+                                    {isCritical ? 'Ideation NLP Flag' : student.risk_score >= 0.5 ? 'Depressive Marker' : 'Routine Check-in'}
+                                  </span>
+                                  <span className="text-xs text-on-surface-variant font-medium">{student.department} (Y{student.year})</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-md">
+                                <div className="flex items-center gap-sm">
+                                  <span className={`font-mono-data w-8 ${riskText}`}>{student.risk_score.toFixed(2)}</span>
+                                  <div className="flex-1 h-1.5 bg-surface-bright rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${riskColor}`} style={{ width: `${student.risk_score * 100}%` }}></div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-md text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {student.risk_score >= 0.8 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedCase(student.anonymous_id);
+                                        setEscalateModalOpen(true);
+                                      }}
+                                      className="bg-rose-600/20 text-rose-300 hover:bg-rose-600/30 border border-rose-500/40 px-3 py-1.5 rounded text-xs font-heading font-extrabold flex items-center gap-1 transition-colors shadow-sm animate-pulse"
+                                      title="Emergency Identity Reveal Authorized (Score ≥ 0.8)"
+                                    >
+                                      <span className="material-symbols-outlined text-[15px]">emergency</span>
+                                      Reveal Identity
+                                    </button>
+                                  )}
+                                  <button onClick={() => setSelectedCase(student.anonymous_id)} className="bg-surface-container border border-border-structural text-on-surface hover:bg-surface-container-high px-3 py-1.5 rounded transition-colors text-sm font-medium flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[16px]">chat</span>
+                                    View Case
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        {queue.length === 0 && (
+                          <tr><td colSpan={4} className="py-8 text-center text-on-surface-variant">Queue is clear</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="glass-panel rounded-xl flex flex-col h-[500px]">
+                  <div className="p-md border-b border-border-internal flex justify-between items-center bg-panel-high/50 rounded-t-xl">
+                    <h3 className="font-h4 text-h4 font-medium flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-secondary text-[20px]">videocam</span>
+                      Upcoming Sessions
+                    </h3>
+                  </div>
+                  <div className="flex-1 p-md space-y-md overflow-y-auto">
+                    {appointments.filter(a => a.status === 'confirmed').length === 0 && (
+                      <p className="text-on-surface-variant text-sm text-center py-6">No upcoming sessions.</p>
+                    )}
+                    {appointments.filter(a => a.status === 'confirmed').map(appt => {
+                       const dt = new Date(appt.slot_time);
+                       return (
+                          <div key={appt.id} className="bg-panel-low border border-border-internal rounded-lg p-md relative overflow-hidden group hover:border-interactive-primary/50 transition-colors">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-interactive-primary rounded-l-lg"></div>
+                            <div className="flex justify-between items-start mb-2 pl-2">
+                              <div>
+                                <div className="font-mono-data text-label-sm text-on-surface-variant mb-1">{appt.anonymous_id}</div>
+                                <div className="font-body-md font-medium text-on-surface">Session</div>
+                              </div>
+                              <div className="bg-surface-container px-2 py-1 rounded text-xs font-mono-data text-interactive-primary border border-border-structural flex items-center gap-1">
+                                {dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </div>
+                            </div>
+                            <div className="mt-4 pl-2 flex gap-2">
+                              <button className="flex-1 bg-interactive-primary hover:bg-primary-fixed-dim text-white py-1.5 rounded text-sm font-medium transition-colors">
+                                Join Telehealth
+                              </button>
+                            </div>
+                          </div>
+                       )
+                    })}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* Appointments View */}
+          {view === 'appointments' && !selectedCase && (
+            <div className="glass-panel p-lg rounded-xl">
+              <h2 className="font-h4 mb-6">Manage Appointments</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+                {appointments.map(appt => {
                   const dt = new Date(appt.slot_time);
                   const isFuture = dt > new Date();
                   return (
-                    <Card key={appt.id} className={`p-5 flex flex-col justify-between ${appt.status === 'cancelled' ? 'opacity-50' : ''}`}>
-                      <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="font-heading font-bold text-sm tracking-wide">{appt.anonymous_id}</h3>
-                          <Badge variant="default" className={`text-[10px] ${appt.status === 'confirmed' ? 'bg-success/20 text-success' : appt.status === 'cancelled' ? 'bg-error/20 text-error' : 'bg-warning/20 text-warning'}`}>
-                            {appt.status.toUpperCase()}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1.5 text-xs text-text-muted mb-4">
-                          <p className="flex items-center gap-2"><Calendar size={12} /> {dt.toLocaleDateString()}</p>
-                          <p className="flex items-center gap-2"><Clock size={12} /> {dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          <p className="flex items-center gap-2"><Shield size={12} /> {appt.psychologist_name}</p>
-                        </div>
+                    <div key={appt.id} className="bg-surface-container border border-border-internal rounded-lg p-md">
+                      <div className="flex justify-between mb-4">
+                        <span className="font-mono-data text-primary">{appt.anonymous_id}</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface-bright">{appt.status.toUpperCase()}</span>
                       </div>
-                      <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+                      <div className="text-sm text-on-surface-variant space-y-1 mb-4">
+                        <p>{dt.toLocaleDateString()}</p>
+                        <p>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      <div className="flex flex-col gap-2">
                         {appt.status === 'pending' && isFuture && (
-                          <button onClick={() => handleUpdateApptStatus(appt.id, 'confirmed')} className="flex-1 py-1.5 bg-success/15 text-success rounded-lg text-xs font-semibold hover:bg-success/25 transition">Approve</button>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleUpdateApptStatus(appt.id, 'confirmed')} className="flex-1 py-1.5 bg-success/20 text-success text-xs rounded hover:bg-success/30">Approve</button>
+                            <button onClick={() => setRescheduleId(appt.id === rescheduleId ? null : appt.id)} className="flex-1 py-1.5 bg-warning/20 text-warning text-xs rounded hover:bg-warning/30">Reschedule</button>
+                          </div>
                         )}
                         {appt.status !== 'cancelled' && isFuture && (
-                          <button onClick={() => handleUpdateApptStatus(appt.id, 'cancelled')} className="flex-1 py-1.5 bg-error/15 text-error rounded-lg text-xs font-semibold hover:bg-error/25 transition">Cancel</button>
+                          <button onClick={() => handleUpdateApptStatus(appt.id, 'cancelled')} className="w-full py-1.5 bg-error/20 text-error text-xs rounded hover:bg-error/30">Cancel</button>
                         )}
                         {appt.status === 'confirmed' && !isFuture && (
-                          <button onClick={() => handleUpdateApptStatus(appt.id, 'completed')} className="flex-1 py-1.5 bg-primary/15 text-primary rounded-lg text-xs font-semibold hover:bg-primary/25 transition">Mark Complete</button>
+                          <button onClick={() => handleUpdateApptStatus(appt.id, 'completed')} className="w-full py-1.5 bg-interactive-primary text-white text-xs rounded hover:bg-primary-hover">Mark Complete</button>
                         )}
                       </div>
-                    </Card>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-        {/* Left: Queue */}
-        <div className={`flex-1 transition-all ${selectedCase ? 'hidden lg:block lg:w-1/3 flex-none' : 'w-full'}`}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-heading font-semibold text-lg flex items-center gap-2">
-              Priority Queue <Badge variant="default" className="bg-primary/20 text-primary">{queue.length}</Badge>
-            </h2>
-          </div>
-
-          {loading ? (
-            <div className="text-center py-20 text-text-muted text-sm">Loading triage queue...</div>
-          ) : queue.length === 0 ? (
-            <Card className="text-center py-20 bg-success/5 border-success/20">
-              <CheckCircle2 size={32} className="mx-auto mb-3 text-success/60" />
-              <p className="text-sm font-medium text-success">Queue is clear</p>
-              <p className="text-xs mt-1 text-success/70">No students are currently flagged for elevated risk.</p>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {queue.map(student => {
-                const isCritical = student.risk_score >= 0.8;
-                const isHigh = student.risk_score >= 0.6 && !isCritical;
-                
-                return (
-                  <Card 
-                    key={student.anonymous_id} 
-                    onClick={() => setSelectedCase(student.anonymous_id)}
-                    className={`p-4 transition-all cursor-pointer ${selectedCase === student.anonymous_id ? 'ring-2 ring-primary border-primary' : 'hover:scale-[1.01]'} ${isCritical ? 'border-error/40 bg-error/5' : isHigh ? 'border-orange-400/30' : 'hover:border-primary/30'}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-heading font-bold text-base text-text tracking-wide">{student.anonymous_id}</h3>
-                          {isCritical && <span className="w-2 h-2 rounded-full bg-error animate-pulse" />}
-                        </div>
-                        <p className="text-[10px] text-text-muted mb-3">{student.department} • Year {student.year}</p>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${
-                            isCritical ? 'bg-error/15 text-error border-error/30' : 
-                            isHigh ? 'bg-orange-400/15 text-orange-300 border-orange-400/30' : 
-                            'bg-warning/15 text-warning border-warning/30'
-                          }`}>
-                            Risk Score: {student.risk_score.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-text-muted mt-2" />
                     </div>
-                  </Card>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Right: Case Details */}
-        {selectedCase && (
-          <div className="flex-1 flex flex-col bg-surface-dim border border-border rounded-2xl overflow-hidden h-[calc(100vh-140px)] sticky top-28 shadow-2xl animate-slide-up lg:animate-fade-in">
-            {/* Case Header */}
-            <div className="bg-surface border-b border-border p-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-heading font-bold text-lg">{selectedCase}</h2>
-                <p className="text-xs text-text-muted">Case Review & Live Intervention</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={handleResolve}
-                  className="px-3 py-1.5 bg-success/15 hover:bg-success/25 text-success text-xs font-semibold rounded-lg transition-colors border border-success/30 flex items-center gap-1.5"
-                >
-                  <CheckCircle2 size={14} /> Resolve Case
-                </button>
-                <button onClick={() => setSelectedCase(null)} className="p-1.5 hover:bg-surface-bright rounded-lg text-text-muted transition-colors lg:hidden">
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-border bg-surface">
-              {([['chat', 'Chat', Send], ['notes', 'Notes', FileText], ['timeline', 'Timeline', TrendingUp], ['followup', 'Follow-up', Bell]] as const).map(([key, label, Icon]) => (
-                <button key={key} onClick={() => setCaseTab(key as typeof caseTab)}
-                  className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-all
-                    ${caseTab === key ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}>
-                  <Icon size={13} /> {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Case Body */}
-            {caseDetails ? (
-              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-
-                {/* ── Chat tab ── */}
-                {caseTab === 'chat' && <>
-                  <div className="text-center">
-                    <span className="text-[10px] text-text-muted bg-surface px-3 py-1 rounded-full uppercase tracking-widest font-semibold border border-border">
-                      AI Chat History
-                    </span>
+          {/* Emergency SOS Hub View */}
+          {view === 'sos' && !selectedCase && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-rose-950/60 via-surface-container-high to-red-950/50 border-2 border-rose-500/50 shadow-xl relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-600/50 animate-bounce">
+                      <span className="material-symbols-outlined text-2xl">emergency</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-heading font-black text-white tracking-tight flex items-center gap-2">
+                        Emergency SOS & Identity Triage Hub
+                      </h2>
+                      <p className="text-xs sm:text-sm text-rose-200/80 max-w-2xl leading-relaxed">
+                        Live monitored feed of student-triggered crisis alarms and critical AI risk overflows. 
+                        Authorized clinicians can initiate audited anonymity deconstruction (<code className="text-white font-mono bg-rose-950/80 px-1.5 py-0.5 rounded">SRS Section 16</code>) to save lives.
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col gap-4 mb-4">
-                    {caseDetails.chat_history.map(msg => (
-                      <div key={msg.id} className={`flex gap-2.5 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                        {msg.sender !== 'user' && (
-                          <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-1 ${msg.sender === 'counselor' ? 'bg-orange-400/20 shadow-[0_0_10px_rgba(251,146,60,0.3)]' : 'bg-primary/20'}`}>
-                            {msg.sender === 'counselor' ? <ShieldAlert size={12} className="text-orange-400" /> : <Brain size={12} className="text-primary" />}
+                  <div className="flex items-center gap-2 bg-rose-900/40 border border-rose-500/50 px-4 py-2 rounded-xl text-center">
+                    <div className="text-2xl font-mono font-black text-white">{activeAlerts.length + queue.filter(q => q.risk_score >= 0.8 && !activeAlerts.some(a => a.student_alias === q.anonymous_id)).length}</div>
+                    <div className="text-[10px] uppercase font-bold text-rose-300 text-left">Active<br/>Crises</div>
+                  </div>
+                </div>
+              </div>
+
+              {activeAlerts.length === 0 && queue.filter(q => q.risk_score >= 0.8).length === 0 ? (
+                <div className="p-12 rounded-2xl glass-panel text-center border-emerald-500/30 bg-emerald-950/10 space-y-3 shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40 shadow-inner">
+                    <span className="material-symbols-outlined text-3xl">verified_user</span>
+                  </div>
+                  <h3 className="text-lg font-heading font-black text-white">All Clear on Campus Support</h3>
+                  <p className="text-sm text-on-surface-variant max-w-md mx-auto">
+                    There are no active emergency SOS broadcasts or severe critical risk scores requiring intervention right now.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {activeAlerts.map(alert => (
+                    <div key={alert.id} className="p-6 rounded-2xl bg-gradient-to-br from-panel-low via-surface-container to-red-950/30 border border-rose-500/60 shadow-xl flex flex-col justify-between hover:border-rose-400 transition-all relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-rose-600/10 rounded-full blur-2xl pointer-events-none group-hover:bg-rose-600/20 transition-all"></div>
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-600/30 text-rose-300 text-[11px] font-mono font-black uppercase border border-rose-500/40 tracking-wider">
+                            <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+                            {alert.triggered_by === 'user_sos' ? '🚨 STUDENT SOS ALARM' : '⚡ CRITICAL AI FLAG'}
+                          </span>
+                          <span className="text-xs font-mono text-on-surface-variant">
+                            {alert.created_at ? new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 mb-6">
+                          <div className="flex items-baseline justify-between">
+                            <h4 className="text-lg font-heading font-black text-white">{alert.student_alias}</h4>
+                            <span className="text-sm font-mono font-extrabold text-rose-400">Risk: {(alert.risk_score * 100).toFixed(0)}%</span>
                           </div>
-                        )}
-                        <div className="max-w-[75%]">
-                          <div className={`px-3 py-2 text-sm leading-relaxed ${
-                            msg.sender === 'user'
-                              ? 'bg-surface-bright border border-border rounded-2xl rounded-tr-none text-text-muted'
-                              : msg.sender === 'counselor'
-                                ? 'bg-gradient-to-br from-orange-400/20 to-orange-500/10 border border-orange-400/30 rounded-2xl rounded-tl-none text-text'
-                                : 'bg-primary/10 border border-primary/20 rounded-2xl rounded-tl-none text-text'
-                          }`}>
-                            {msg.sender === 'counselor' && <p className="text-[10px] font-bold text-orange-400 mb-0.5 uppercase tracking-wider">You (Counselor)</p>}
-                            {msg.sender === 'ai' && <p className="text-[10px] font-bold text-primary mb-0.5 uppercase tracking-wider">AI Guide</p>}
-                            <p>{msg.text}</p>
+                          <p className="text-xs text-on-surface-variant">
+                            Department of <span className="text-on-surface font-semibold">{alert.department}</span> (Year {alert.year})
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-4 border-t border-border-internal/60">
+                        <button
+                          onClick={() => { setSelectedCase(alert.student_alias); setEscalateModalOpen(true); }}
+                          className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 transition-all active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">lock_open</span>
+                          Emergency Reveal Identity
+                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setSelectedCase(alert.student_alias)}
+                            className="flex-1 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-semibold text-xs transition-colors border border-border-structural"
+                          >
+                            Open Clinical Case
+                          </button>
+                          <button
+                            onClick={() => handleResolveAlert(alert.id)}
+                            className="px-3 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-colors border border-emerald-500/30"
+                            title="Dismiss or mark resolved"
+                          >
+                            ✓ Resolve
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Show Critical Queue Students that haven't explicitly created an Alert object yet */}
+                  {queue.filter(q => q.risk_score >= 0.8 && !activeAlerts.some(a => a.student_alias === q.anonymous_id)).map(student => (
+                    <div key={student.anonymous_id} className="p-6 rounded-2xl bg-gradient-to-br from-panel-low via-surface-container to-amber-950/20 border border-amber-500/40 shadow-xl flex flex-col justify-between hover:border-amber-400/60 transition-all relative">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-600/20 text-amber-300 text-[11px] font-mono font-black uppercase border border-amber-500/40">
+                            ⚡ HIGH-RISK THRESHOLD
+                          </span>
+                        </div>
+                        <div className="space-y-2 mb-6">
+                          <div className="flex items-baseline justify-between">
+                            <h4 className="text-lg font-heading font-black text-white">{student.anonymous_id}</h4>
+                            <span className="text-sm font-mono font-extrabold text-amber-400">Risk: {(student.risk_score * 100).toFixed(0)}%</span>
+                          </div>
+                          <p className="text-xs text-on-surface-variant">
+                            Department of <span className="text-on-surface font-semibold">{student.department}</span> (Year {student.year})
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-4 border-t border-border-internal/60">
+                        <button
+                          onClick={() => { setSelectedCase(student.anonymous_id); setEscalateModalOpen(true); }}
+                          className="w-full py-3 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">lock_open</span>
+                          Reveal Identity (Emergency)
+                        </button>
+                        <button
+                          onClick={() => setSelectedCase(student.anonymous_id)}
+                          className="w-full py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-semibold text-xs transition-colors border border-border-structural"
+                        >
+                          Open Clinical Case & Chat
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Case Details View */}
+          {selectedCase && caseDetails && (
+            <div className="glass-panel flex flex-col rounded-xl overflow-hidden h-[calc(100vh-140px)]">
+              <div className="bg-panel-high border-b border-border-internal p-4 flex items-center justify-between">
+                <div>
+                  <h2 className="font-h4 font-bold flex items-center gap-2">
+                    <button onClick={() => setSelectedCase(null)} className="hover:bg-surface-container p-1 rounded-full"><span className="material-symbols-outlined text-[20px]">arrow_back</span></button>
+                    {selectedCase}
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  {caseDetails.student.risk_score >= 0.8 && !decryptedIdentity && (
+                    <button 
+                      onClick={() => setEscalateModalOpen(true)} 
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-heading font-extrabold text-xs rounded transition-all shadow-md shadow-rose-600/30 flex items-center gap-1 animate-pulse"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">emergency</span>
+                      🚨 Reveal Identity
+                    </button>
+                  )}
+                  <button onClick={handleResolve} className="px-3 py-1.5 bg-success/20 text-success hover:bg-success/30 text-sm rounded transition-colors flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span> Resolve
+                  </button>
+                </div>
+              </div>
+
+              {/* Persistent Emergency & Identity Audit Bar */}
+              {(caseDetails.student.risk_score >= 0.8 || decryptedIdentity) && (
+                <div className={`px-6 py-3 ${decryptedIdentity ? 'bg-gradient-to-r from-amber-950/80 via-surface-container to-red-950/80 border-b-2 border-amber-500' : 'bg-rose-950/60 border-b border-rose-500/50'} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner`}>
+                  {decryptedIdentity ? (
+                    <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-400 text-[22px]">gpp_maybe</span>
+                        <div>
+                          <span className="text-xs font-mono font-black uppercase tracking-wider text-amber-300">🔓 AUDITING COMPLIANCE (SRS SEC 16): IDENTITY DECONSTRUCTED</span>
+                          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-white mt-0.5">
+                            <span>Legal Name: <strong className="font-mono text-amber-200 text-sm">{decryptedIdentity.name}</strong></span>
+                            <span>Phone: <strong className="font-mono text-amber-200 text-sm">{decryptedIdentity.phone}</strong></span>
+                            <span>Email: <strong className="font-mono text-amber-200 text-sm">{decryptedIdentity.email}</strong></span>
                           </div>
                         </div>
                       </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-                </>}
-
-                {/* ── Notes tab ── */}
-                {caseTab === 'notes' && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <textarea
-                        value={newNote}
-                        onChange={e => setNewNote(e.target.value)}
-                        rows={4}
-                        placeholder="Write a private clinical note…"
-                        className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/50 resize-none transition-all"
-                      />
-                      <button onClick={handleSaveNote} disabled={!newNote.trim() || savingNote}
-                        className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-40">
-                        {savingNote ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Plus size={14} /> Save Note</>}
+                      <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded border border-amber-500/30">Immutable DB Record Created</span>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 text-rose-200 text-xs">
+                        <span className="material-symbols-outlined text-rose-500 text-[20px] animate-pulse">warning</span>
+                        <span><strong>Critical Crisis Case (Score: {(caseDetails.student.risk_score * 100).toFixed(0)}%).</strong> Student life safety protocol permits breaking anonymity under strict database audit logging.</span>
+                      </div>
+                      <button 
+                        onClick={() => setEscalateModalOpen(true)}
+                        className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider rounded shadow-md shrink-0"
+                      >
+                        Break Anonymity & Reveal
                       </button>
                     </div>
-                    {notes.length === 0
-                      ? <p className="text-xs text-text-muted text-center py-8">No notes yet. Add your first clinical note above.</p>
-                      : notes.map(n => (
-                        <Card key={n.id} className="p-3">
-                          <p className="text-[10px] text-text-muted mb-1.5 flex items-center gap-1"><Clock size={10} />{new Date(n.created_at).toLocaleString()}</p>
-                          <p className="text-sm text-text whitespace-pre-wrap leading-relaxed">{n.content}</p>
-                        </Card>
-                      ))
-                    }
+                  )}
+                </div>
+              )}
+
+              {/* Tabs */}
+              <div className="flex border-b border-border-internal bg-panel-low">
+                {([['chat', 'Chat', 'chat'], ['notes', 'Notes', 'edit_document'], ['timeline', 'Timeline', 'trending_up'], ['followup', 'Follow-up', 'event']] as const).map(([key, label, icon]) => (
+                  <button key={key} onClick={() => setCaseTab(key as typeof caseTab)}
+                    className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-all ${caseTab === key ? 'border-primary text-primary bg-surface-container' : 'border-transparent text-on-surface-variant hover:bg-surface-container'}`}>
+                    <span className="material-symbols-outlined text-[18px]">{icon}</span> {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-md flex flex-col">
+                {caseTab === 'chat' && (
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                      {caseDetails.chat_history.map(msg => (
+                        <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
+                          {msg.sender !== 'user' && (
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${msg.sender === 'counselor' ? 'bg-orange-400/20 text-orange-400' : 'bg-primary-container text-on-primary-container'}`}>
+                              <span className="material-symbols-outlined text-[16px]">{msg.sender === 'counselor' ? 'psychology' : 'smart_toy'}</span>
+                            </div>
+                          )}
+                          <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${msg.sender === 'user' ? 'bg-surface-container-high rounded-tr-none' : msg.sender === 'counselor' ? 'bg-orange-400/20 rounded-tl-none border border-orange-400/30' : 'bg-primary-container/20 rounded-tl-none border border-primary-container/30'}`}>
+                             {msg.sender !== 'user' && <p className="text-[10px] uppercase font-bold mb-1 opacity-70">{msg.sender === 'counselor' ? 'You' : 'AI Guide'}</p>}
+                             <p className="text-sm">{msg.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={chatEndRef} />
+                    </div>
+                    <div className="mt-auto bg-surface-container p-2 rounded-lg flex items-center gap-2 border border-border-internal">
+                      <input 
+                        type="text" 
+                        value={counselorMessage} 
+                        onChange={e => setCounselorMessage(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Send message to student as Counselor..."
+                        className="flex-1 bg-transparent border-none text-sm px-2 focus:outline-none"
+                      />
+                      <button onClick={handleSendMessage} className="bg-primary hover:bg-primary-hover text-white p-2 rounded-md">
+                        <span className="material-symbols-outlined text-[18px]">send</span>
+                      </button>
+                    </div>
                   </div>
                 )}
-
-                {/* ── Timeline tab ── */}
+                {caseTab === 'notes' && (
+                  <div className="space-y-4">
+                    <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={4} className="w-full bg-surface-container border border-border-internal rounded-lg p-3 text-sm focus:outline-none" placeholder="Clinical notes..."></textarea>
+                    <button onClick={handleSaveNote} className="w-full bg-primary py-2 rounded-lg text-sm text-white">Save Note</button>
+                    <div className="space-y-2">
+                      {notes.map(n => (
+                        <div key={n.id} className="bg-surface-container-low p-3 rounded-lg border border-border-internal">
+                           <p className="text-xs text-on-surface-variant mb-1">{new Date(n.created_at).toLocaleString()}</p>
+                           <p className="text-sm whitespace-pre-wrap">{n.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {caseTab === 'timeline' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-3">
-                      <Card className="p-3 text-center">
-                        <p className="text-xl font-heading font-bold text-primary">{caseDetails.student.risk_score.toFixed(1)}</p>
-                        <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">Risk Score</p>
-                      </Card>
-                      <Card className="p-3 text-center">
-                        <p className="text-xl font-heading font-bold text-primary">{caseDetails.mood_logs.length}</p>
-                        <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">Mood Logs</p>
-                      </Card>
-                      <Card className="p-3 text-center">
-                        <p className="text-xl font-heading font-bold text-primary">{caseDetails.chat_history.length}</p>
-                        <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">Chat Msgs</p>
-                      </Card>
+                      <div className="bg-surface-container p-4 rounded-lg text-center"><p className="text-h3 text-error">{caseDetails.student.risk_score.toFixed(1)}</p><p className="text-xs text-on-surface-variant uppercase">Risk Score</p></div>
+                      <div className="bg-surface-container p-4 rounded-lg text-center"><p className="text-h3">{caseDetails.mood_logs.length}</p><p className="text-xs text-on-surface-variant uppercase">Mood Logs</p></div>
+                      <div className="bg-surface-container p-4 rounded-lg text-center"><p className="text-h3">{caseDetails.chat_history.length}</p><p className="text-xs text-on-surface-variant uppercase">Chat Msgs</p></div>
                     </div>
-                    {/* Mood trend bars */}
-                    {caseDetails.mood_logs.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5"><TrendingUp size={12} /> Mood History</p>
-                        <div className="flex items-end gap-1.5 h-20">
-                          {caseDetails.mood_logs.slice(0, 10).reverse().map((log: any, i: number) => {
-                            const h = Math.round((log.score / 5) * 100);
-                            const col = log.score >= 4 ? '#a1f3c3' : log.score >= 3 ? '#f7d383' : '#ffb4ab';
-                            return (
-                              <div key={i} title={`Score: ${log.score}/5`}
-                                style={{ flex: 1, height: `${h}%`, background: col, borderRadius: 4, transition: 'height 0.4s ease', minHeight: 4 }} />
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-between text-[10px] text-text-muted mt-1">
-                          <span>Oldest</span><span>Most Recent</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* Student info */}
-                    <Card className="p-3 space-y-2">
-                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Case Info</p>
-                      {[['Department', caseDetails.student.department || '—'], ['Year', caseDetails.student.year ? `Year ${caseDetails.student.year}` : '—'], ['Alias', caseDetails.student.anonymous_id]].map(([k, v]) => (
-                        <div key={k} className="flex justify-between text-sm">
-                          <span className="text-text-muted">{k}</span>
-                          <span className="text-text font-medium font-mono text-xs">{v}</span>
-                        </div>
-                      ))}
-                      
-                      {caseDetails.student.risk_score >= 0.8 && !decryptedIdentity && (
+                    {caseDetails.student.risk_score >= 0.8 && !decryptedIdentity && (
                         <button 
                           onClick={() => setEscalateModalOpen(true)}
-                          className="w-full mt-4 py-2 bg-error/15 text-error text-xs font-bold rounded-lg border border-error/30 hover:bg-error/25 transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(255,0,0,0.1)]"
+                          className="w-full mt-4 py-3 bg-rose-600 text-white text-sm font-heading font-black uppercase tracking-wider rounded-xl hover:bg-rose-500 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30"
                         >
-                          <ShieldAlert size={14} /> 
-                          Escalate to Campus Security
+                          <span className="material-symbols-outlined">lock_open</span>
+                          🚨 Emergency Identity Reveal & Security Escalation
                         </button>
                       )}
                       
                       {decryptedIdentity && (
-                        <div className="mt-4 p-3 bg-error/10 border border-error/40 rounded-lg space-y-2 animate-fade-in">
-                          <p className="text-xs font-bold text-error uppercase tracking-wider mb-1 flex items-center gap-1"><ShieldAlert size={12}/> Decrypted Identity</p>
-                          <div className="flex justify-between text-sm"><span className="text-error/70">Name</span><span className="font-semibold text-text">{decryptedIdentity.name}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-error/70">Phone</span><span className="font-semibold text-text">{decryptedIdentity.phone}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-error/70">Email</span><span className="font-semibold text-text">{decryptedIdentity.email}</span></div>
+                        <div className="mt-4 p-4 bg-error-container/20 border border-error/40 rounded-lg space-y-2">
+                          <p className="text-sm font-bold text-error uppercase tracking-wider mb-2">Decrypted Identity</p>
+                          <div className="flex justify-between text-sm"><span className="text-error/70">Name</span><span className="font-semibold text-on-surface">{decryptedIdentity.name}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-error/70">Phone</span><span className="font-semibold text-on-surface">{decryptedIdentity.phone}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-error/70">Email</span><span className="font-semibold text-on-surface">{decryptedIdentity.email}</span></div>
                         </div>
                       )}
-                    </Card>
                   </div>
                 )}
-
-                {/* ── Follow-up tab ── */}
                 {caseTab === 'followup' && (
-                  <div className="space-y-4">
-                    <Card className="p-4 space-y-3">
-                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5"><Calendar size={12} /> Schedule Follow-up</p>
-                      <input type="date" value={followupDate} onChange={e => setFollowupDate(e.target.value)}
-                        className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-text focus:outline-none focus:border-primary/50 transition-all" />
-                      <input type="text" value={followupReason} onChange={e => setFollowupReason(e.target.value)}
-                        placeholder="Reason (optional)…"
-                        className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/50 transition-all" />
-                      <button onClick={handleSaveFollowup} disabled={!followupDate || savingFollowup}
-                        className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover transition-all disabled:opacity-40">
-                        {savingFollowup ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Bell size={14} /> Set Reminder</>}
-                      </button>
-                    </Card>
-                    {followUps.length === 0
-                      ? <p className="text-xs text-text-muted text-center py-6">No follow-ups scheduled.</p>
-                      : followUps.map(f => (
-                        <Card key={f.id} className={`p-3 flex items-center gap-3 ${f.completed ? 'opacity-50' : ''}`}>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-text">{f.due_date}</p>
-                            {f.reason && <p className="text-xs text-text-muted mt-0.5">{f.reason}</p>}
-                          </div>
-                          {f.completed
-                            ? <CheckCircle2 size={18} className="text-success flex-shrink-0" />
-                            : <button onClick={() => handleCompleteFollowup(f.id)}
-                                className="text-xs px-2.5 py-1 rounded-lg bg-success/15 text-success border border-success/30 font-semibold hover:bg-success/25 transition-all">
-                                Done
-                              </button>
-                          }
-                        </Card>
-                      ))
-                    }
-                  </div>
+                   <div className="space-y-4">
+                      <div className="bg-surface-container p-4 rounded-lg space-y-3">
+                        <input type="date" value={followupDate} onChange={e=>setFollowupDate(e.target.value)} className="w-full bg-surface-container-high p-2 rounded text-sm focus:outline-none" style={{ colorScheme: 'dark' }} />
+                        <input type="text" value={followupReason} onChange={e=>setFollowupReason(e.target.value)} placeholder="Reason" className="w-full bg-surface-container-high p-2 rounded text-sm focus:outline-none"/>
+                        <button onClick={handleSaveFollowup} className="w-full bg-primary py-2 rounded text-sm text-white hover:bg-primary-hover">Schedule</button>
+                      </div>
+                      {followUps.map(f => (
+                         <div key={f.id} className="flex justify-between items-center bg-surface-container p-3 rounded-lg border border-border-internal">
+                            <div><p className="text-sm font-medium">{f.due_date}</p><p className="text-xs text-on-surface-variant">{f.reason}</p></div>
+                            {!f.completed && <button onClick={()=>handleCompleteFollowup(f.id)} className="bg-success/20 text-success px-3 py-1 rounded text-xs font-semibold hover:bg-success/30">Mark Done</button>}
+                         </div>
+                      ))}
+                   </div>
                 )}
-
               </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-                Loading case details...
-              </div>
-            )}
-
-            {/* Input */}
-            <div className="p-3 bg-surface border-t border-border">
-              <div className="flex items-center gap-2 bg-surface-bright border border-border rounded-xl p-1 pr-1 focus-within:border-primary/50 transition-colors shadow-inner">
-                <input
-                  type="text"
-                  placeholder="Send an anonymous message as Counselor..."
-                  className="flex-1 bg-transparent border-none focus:outline-none text-sm px-3 py-2 text-text placeholder-text-muted"
-                  value={counselorMessage}
-                  onChange={e => setCounselorMessage(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
-                  disabled={sending}
-                />
-                <button 
-                  onClick={handleSendMessage}
-                  disabled={!counselorMessage.trim() || sending}
-                  className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
-                </button>
-              </div>
-              <p className="text-[10px] text-text-muted text-center mt-2 flex items-center justify-center gap-1">
-                <Shield size={10} className="text-primary" /> Messages appear instantly in the student's AI chat window.
-              </p>
             </div>
-          </div>
-        )}
-          </>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

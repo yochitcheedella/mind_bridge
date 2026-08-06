@@ -5,20 +5,29 @@ import { BarChart3, Shield, Users, AlertTriangle, TrendingDown, TrendingUp, Acti
 import { apiFetch } from '../utils/auth';
 
 interface Analytics {
+  institution?: string;
   total_students: number;
   average_risk_score: number;
   high_risk_count: number;
   medium_risk_count: number;
+  low_risk_count?: number;
+  active_alerts?: number;
   average_mood_score: number;
   average_burnout_probability: number;
   campus_wellbeing_percent: number;
-  department_data?: { name: string; stress: number }[];
+  total_ai_sessions?: number;
+  total_appointments?: number;
+  active_appointments?: number;
+  department_data?: { name: string; student_count: number; stress_index: number; wellbeing_score: number }[];
+  year_data?: { year: string; student_count: number; stress_index: number }[];
 }
 
 interface Psychologist {
   id: number;
   name: string;
   specialization: string;
+  email?: string;
+  is_active?: boolean;
 }
 
 const COLORS = ['#5E6BFF', '#ffb4ab', '#f7d383', '#a1f3c3', '#7a85ff', '#ff8fa3', '#ffd166'];
@@ -74,15 +83,26 @@ export default function AdminAnalytics() {
   const [addingPsych, setAddingPsych] = useState(false);
 
   useEffect(() => {
-    apiFetch('/api/risk/analytics')
+    apiFetch('/api/admin/analytics')
       .then(r => r.json())
-      .then(data => setAnalytics(data))
-      .catch(() => setAnalytics({
-        total_students: 1402, average_risk_score: 0.22, high_risk_count: 3,
-        medium_risk_count: 47, average_mood_score: 3.4, campus_wellbeing_percent: 78, average_burnout_probability: 0.15,
-        department_data: [],
-      }))
-      .finally(() => setLoading(false));
+      .then(data => { setAnalytics(data); setLoading(false); })
+      .catch(() => {
+        // Fallback: try unauthenticated analytics for backward compat
+        apiFetch('/api/risk/analytics')
+          .then(r => r.json())
+          .then(data => setAnalytics(data))
+          .catch(() => setAnalytics({
+            total_students: 1402,
+            average_risk_score: 0.22,
+            high_risk_count: 3,
+            medium_risk_count: 47,
+            average_mood_score: 3.4,
+            campus_wellbeing_percent: 78,
+            average_burnout_probability: 0.15,
+            department_data: [],
+          }))
+          .finally(() => setLoading(false));
+      });
       
     fetchPsychologists();
   }, []);
@@ -124,41 +144,65 @@ export default function AdminAnalytics() {
   const a = analytics;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-surface-dim/80 backdrop-blur-xl border-b border-border px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-20 px-4 sm:px-6 pt-4">
+      {/* Header Banner */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-surface-container/60 p-4 sm:p-6 rounded-3xl border border-border-structural/80 backdrop-blur-xl shadow-lg">
+        <div className="flex items-center justify-between w-full lg:w-auto gap-4">
           <div>
-            <h1 className="font-heading font-bold text-xl">
-              MindBridge<span className="text-primary">.Admin</span>
+            <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>MindBridge</span>
+              <span className="text-secondary-fixed">.Admin</span>
             </h1>
-            <p className="text-xs text-text-muted mt-0.5">University Administration Portal</p>
+            <p className="text-xs sm:text-sm text-on-surface-variant font-medium mt-0.5">
+              VIT Institutional Administration Portal
+            </p>
           </div>
-          <div className="flex bg-surface-bright rounded-xl p-1 shadow-inner border border-border">
-            <button onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
-                ${activeTab === 'analytics' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
-              <BarChart3 size={16} /> Analytics
-            </button>
-            <button onClick={() => setActiveTab('personnel')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
-                ${activeTab === 'personnel' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
-              <Users size={16} /> Personnel
-            </button>
-            <button onClick={() => setActiveTab('settings')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2
-                ${activeTab === 'settings' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
-              <Settings size={16} /> Settings
-            </button>
-          </div>
-          <div className="flex items-center gap-2 bg-success/10 border border-success/25 rounded-lg px-3 py-2">
-            <Shield size={14} className="text-success" />
-            <span className="text-xs text-success font-semibold">Admin Access</span>
+          <div className="flex lg:hidden items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-3 py-1 shrink-0">
+            <Shield size={13} className="text-emerald-400" />
+            <span className="text-[11px] text-emerald-400 font-mono font-extrabold uppercase">Admin</span>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8 animate-fade-in">
+        <div className="flex flex-wrap w-full lg:w-auto bg-surface-container-highest/70 rounded-2xl p-1.5 shadow-inner border border-border-structural gap-1">
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 active:scale-95 ${
+              activeTab === 'analytics' 
+                ? 'bg-gradient-to-r from-interactive-primary to-secondary text-white shadow-md' 
+                : 'text-on-surface-variant hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <BarChart3 size={16} /> <span>Analytics</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('personnel')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 active:scale-95 ${
+              activeTab === 'personnel' 
+                ? 'bg-gradient-to-r from-interactive-primary to-secondary text-white shadow-md' 
+                : 'text-on-surface-variant hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Users size={16} /> <span>Personnel</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 active:scale-95 ${
+              activeTab === 'settings' 
+                ? 'bg-gradient-to-r from-interactive-primary to-secondary text-white shadow-md' 
+                : 'text-on-surface-variant hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Settings size={16} /> <span>Settings</span>
+          </button>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl px-4 py-2.5 shadow-sm">
+          <Shield size={16} className="text-emerald-400 animate-pulse" />
+          <span className="text-xs text-emerald-400 font-mono font-extrabold uppercase tracking-wide">Admin Access</span>
+        </div>
+      </div>
+
+      <main className="space-y-6 animate-fade-in">
         {activeTab === 'analytics' && (
           <>
             {/* Privacy Banner */}
@@ -201,7 +245,7 @@ export default function AdminAnalytics() {
               <div className="space-y-4">
                 {a?.department_data && a.department_data.length > 0 ? (
                   a.department_data.map((d, i) => (
-                    <DeptStressBar key={d.name} name={d.name} stress={d.stress} color={COLORS[i % COLORS.length]} />
+                    <DeptStressBar key={d.name} name={d.name} stress={d.stress_index} color={COLORS[i % COLORS.length]} />
                   ))
                 ) : (
                   <p className="text-sm text-text-muted">No department data available.</p>
@@ -330,11 +374,11 @@ export default function AdminAnalytics() {
               </Card>
 
               <Card className="p-5 space-y-4">
-                <h3 className="font-heading font-semibold text-sm border-b border-border pb-2">University Branding</h3>
+                <h3 className="font-heading font-semibold text-sm border-b border-border pb-2">Institutional Configuration</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-semibold text-text-muted">University Name</label>
-                    <input type="text" defaultValue="Tech University" className="w-full mt-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm" />
+                    <label className="text-xs font-semibold text-text-muted">Institution Name</label>
+                    <input type="text" defaultValue="Vishnu Institute of Technology (VIT)" className="w-full mt-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm" disabled />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-text-muted">Primary Color (Hex)</label>

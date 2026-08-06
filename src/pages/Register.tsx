@@ -1,33 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Mail, Lock, Eye, EyeOff, ChevronRight, Sparkles, Check } from 'lucide-react';
+import { Shield, Mail, Lock, Eye, EyeOff, ChevronRight, Sparkles, Check, User, Phone } from 'lucide-react';
 import { setAuth, API_URL } from '../utils/auth';
 
-const DEPARTMENTS = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Chemical', 'Biotechnology', 'Physics', 'Mathematics', 'Management', 'Medicine', 'Other'];
+const DEPARTMENTS = ['CSE', 'AI&DS', 'AI&ML', 'EEE', 'IT', 'CSBS', 'ECE', 'MECH', 'CIVIL', 'Other'];
 
 export default function Register() {
   const [step, setStep] = useState<'form' | 'reveal'>('form');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [alias, setAlias] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [department, setDepartment] = useState('Computer Science');
+  const [department, setDepartment] = useState('CSE');
   const [year, setYear] = useState(1);
-  const [universityId, setUniversityId] = useState<number | ''>('');
-  const [universities, setUniversities] = useState<{id: number, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [alias, setAlias] = useState('');
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    fetch(`${API_URL}/api/auth/universities`)
-      .then(res => res.json())
-      .then(data => {
-        setUniversities(data);
-        if (data.length > 0) setUniversityId(data[0].id);
-      })
-      .catch(err => console.error("Could not fetch universities", err));
-  }, []);
+
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,15 +29,29 @@ export default function Register() {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, department, year, university_id: universityId === '' ? null : universityId }),
+        body: JSON.stringify({ 
+          name, 
+          phone, 
+          alias, 
+          email, 
+          password, 
+          department, 
+          year 
+        }),
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.detail || 'Registration failed');
       }
       const data = await res.json();
-      setAuth({ access_token: data.access_token, anonymous_alias: data.anonymous_alias, student_id: data.student_id, primary_color: data.primary_color });
-      setAlias(data.anonymous_alias);
+      setAuth({ 
+        access_token: data.access_token,
+        role: 'student',
+        anonymous_alias: data.anonymous_alias, 
+        student_id: data.student_id, 
+        institution: data.institution,
+        primary_color: data.primary_color || '#6366f1',
+      });
       
       // Request Push Notification Permission
       try {
@@ -67,126 +73,157 @@ export default function Register() {
 
       setStep('reveal');
     } catch (err: any) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError("Unable to reach backend API server. Please confirm the FastAPI service is running on port 8000 (npm run start:backend).");
+      } else {
+        setError(err.message || 'An unexpected error occurred during institutional registration.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center relative overflow-y-auto px-4 py-12">
       <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-primary/12 rounded-full blur-3xl animate-float-slow" />
       <div className="absolute -bottom-48 -left-32 w-[450px] h-[450px] bg-purple-900/15 rounded-full blur-3xl animate-float-med" />
 
-      <div className="w-full max-w-[440px] relative animate-fade-in">
+      <div className="w-full max-w-[440px] relative animate-fade-in my-auto">
         {/* Brand */}
         <div className="text-center mb-7">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/25 mb-4">
             <Shield className="text-primary" size={26} />
           </div>
-          <h1 className="text-2xl font-heading font-bold">
+          <h1 className="text-2xl font-heading font-bold text-on-surface">
             Join Mind<span className="text-primary">Bridge</span>
           </h1>
-          <p className="text-text-muted text-sm mt-1.5">Your identity stays anonymous, always.</p>
+          <p className="text-on-surface-variant text-sm mt-1">Vishnu Institute of Technology · Your identity stays anonymous.</p>
         </div>
 
         {step === 'form' ? (
-          <div className="glass-panel p-8 shadow-2xl shadow-black/40">
-            <h2 className="font-heading text-xl font-bold mb-1">Create your account</h2>
-            <p className="text-text-muted text-sm mb-6">We'll generate a private anonymous identity for you.</p>
+          <div className="glass-panel p-8 shadow-2xl shadow-black/40 rounded-2xl border border-border-internal">
+            <h2 className="font-heading text-xl font-bold mb-1 text-on-surface">Create your account</h2>
+            <p className="text-on-surface-variant text-sm mb-6">Choose your alias. Your real details are securely encrypted.</p>
 
             <form onSubmit={handleRegister} className="space-y-4">
+              
+              <div className="grid grid-cols-2 gap-3">
+                {/* Real Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Real Name</label>
+                  <div className="relative">
+                    <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                    <input type="text" required value={name} onChange={e => setName(e.target.value)}
+                      placeholder="Jane Doe"
+                      className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-4 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Phone</label>
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                    <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)}
+                      placeholder="+91..."
+                      className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-4 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Alias */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Chosen Alias (Visible to Counselors)</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">masks</span>
+                  <input type="text" required value={alias} onChange={e => setAlias(e.target.value)}
+                    placeholder="e.g. Blue Sparrow"
+                    className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-4 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
+                </div>
+              </div>
+
               {/* Email */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">College Email</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">College Email</label>
                 <div className="relative">
-                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="you@college.edu"
-                    className="w-full bg-surface border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/60 focus:bg-surface-bright transition-all" />
+                    placeholder="you@vishnu.edu.in"
+                    className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-4 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
                 </div>
               </div>
 
               {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">Password</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Password</label>
                 <div className="relative">
-                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   <input type={showPassword ? 'text' : 'password'} required value={password}
                     onChange={e => setPassword(e.target.value)} placeholder="Min. 8 characters"
-                    className="w-full bg-surface border border-border rounded-xl pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/60 focus:bg-surface-bright transition-all" />
+                    className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-10 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
                   <button type="button" onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors">
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors">
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
 
-              {/* University */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">University</label>
-                <select value={universityId} onChange={e => setUniversityId(Number(e.target.value))} required
-                  className="w-full bg-surface border border-border rounded-xl px-3 py-3 text-sm text-text focus:outline-none focus:border-primary/60 transition-all">
-                  <option value="" disabled>Select your university...</option>
-                  {universities.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              </div>
 
               {/* Department + Year */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">Department</label>
-                  <select value={department} onChange={e => setDepartment(e.target.value)}
-                    className="w-full bg-surface border border-border rounded-xl px-3 py-3 text-sm text-text focus:outline-none focus:border-primary/60 transition-all">
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Department</label>
+                  <select value={department} onChange={e => setDepartment(e.target.value)} style={{ colorScheme: 'dark' }}
+                    className="w-full bg-surface-container-low border border-border-internal rounded-xl px-3 py-3 text-sm text-on-surface focus:outline-none focus:border-interactive-primary transition-all">
+                    {DEPARTMENTS.map(d => <option key={d} value={d} style={{ background: '#131317' }}>{d}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">Year</label>
-                  <select value={year} onChange={e => setYear(Number(e.target.value))}
-                    className="w-full bg-surface border border-border rounded-xl px-3 py-3 text-sm text-text focus:outline-none focus:border-primary/60 transition-all">
-                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
+                  <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Year</label>
+                  <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ colorScheme: 'dark' }}
+                    className="w-full bg-surface-container-low border border-border-internal rounded-xl px-3 py-3 text-sm text-on-surface focus:outline-none focus:border-interactive-primary transition-all">
+                    {[1, 2, 3, 4].map(y => <option key={y} value={y} style={{ background: '#131317' }}>Year {y}</option>)}
                   </select>
                 </div>
               </div>
 
               {error && (
-                <div className="text-error text-sm bg-error/8 border border-error/20 rounded-lg px-4 py-3">{error}</div>
+                <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</div>
               )}
 
               <button type="submit" disabled={loading}
-                className="w-full bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 mt-2 shadow-lg shadow-primary/20">
+                className="w-full bg-interactive-primary hover:brightness-110 text-on-primary font-bold py-3 rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 mt-2 shadow-lg shadow-interactive-primary/20">
                 {loading ? (
-                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating account...</>
+                  <><div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> Creating account...</>
                 ) : (
-                  <><Sparkles size={16} /><span>Generate My Anonymous Identity</span></>
+                  <><Sparkles size={16} /><span>Create Anonymous Identity</span></>
                 )}
               </button>
             </form>
 
-            <div className="mt-5 pt-5 border-t border-border text-center">
-              <p className="text-sm text-text-muted">
+            <div className="mt-5 pt-5 border-t border-border-internal text-center">
+              <p className="text-sm text-on-surface-variant">
                 Already have an account?{' '}
-                <Link to="/login" className="text-primary hover:text-primary-hover font-semibold transition-colors">Sign in →</Link>
+                <Link to="/login" className="text-primary hover:brightness-110 font-bold transition-colors">Sign in →</Link>
               </p>
             </div>
           </div>
         ) : (
           /* Step 2: Anonymous Identity Reveal */
-          <div className="glass-panel p-8 shadow-2xl shadow-black/40 animate-scale-in text-center">
-            <div className="w-16 h-16 bg-success/15 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Check size={28} className="text-success" />
+          <div className="glass-panel p-8 shadow-2xl shadow-black/40 rounded-2xl border border-border-internal animate-scale-in text-center">
+            <div className="w-16 h-16 bg-[#a1f3c3]/15 border border-[#a1f3c3]/30 rounded-full flex items-center justify-center mx-auto mb-5">
+              <Check size={28} className="text-[#a1f3c3]" />
             </div>
-            <h2 className="font-heading text-2xl font-bold mb-2">You're in! 🎉</h2>
-            <p className="text-text-muted text-sm mb-7">
-              Your anonymous identity has been created. This is how you'll be known throughout the platform — no one can link this to you.
+            <h2 className="font-heading text-2xl font-bold mb-2 text-on-surface">You're in! 🎉</h2>
+            <p className="text-on-surface-variant text-sm mb-7">
+              Your identity has been created. This is how you'll be known throughout the platform — no one can link this to you.
             </p>
 
             {/* Alias Card */}
             <div className="bg-primary/10 border border-primary/25 rounded-2xl p-6 mb-6">
-              <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mb-2">Your Anonymous Identity</p>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-2">Your Chosen Alias</p>
               <p className="font-heading text-2xl font-bold text-primary tracking-wide">{alias}</p>
-              <p className="text-xs text-text-muted mt-3 leading-relaxed">
+              <p className="text-xs text-on-surface-variant mt-3 leading-relaxed">
                 Psychologists and institution staff will only ever see this name — never your real identity.
               </p>
             </div>
@@ -194,28 +231,28 @@ export default function Register() {
             {/* Privacy bullets */}
             <div className="space-y-2.5 text-left mb-7">
               {[
-                'Your email is never shown to anyone',
-                'Counselors only see your anonymous ID',
+                'Your real name and email are securely encrypted',
+                'Counselors only see your chosen alias',
                 'Identity revealed only in verified emergencies',
-                'All conversations are encrypted end-to-end',
+                'All conversations are completely private',
               ].map(pt => (
-                <div key={pt} className="flex items-start gap-2.5 text-sm text-text-muted">
-                  <Check size={14} className="text-success shrink-0 mt-0.5" />
+                <div key={pt} className="flex items-start gap-2.5 text-sm text-on-surface-variant">
+                  <Check size={14} className="text-[#a1f3c3] shrink-0 mt-0.5" />
                   {pt}
                 </div>
               ))}
             </div>
 
-            <button onClick={() => navigate('/dashboard')}
-              className="w-full bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+            <button onClick={() => navigate('/student/home')}
+              className="w-full bg-interactive-primary hover:brightness-110 text-on-primary font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-interactive-primary/20">
               Enter Dashboard <ChevronRight size={16} />
             </button>
           </div>
         )}
 
-        <p className="text-xs text-text-muted text-center mt-4 flex items-center justify-center gap-1.5">
+        <p className="text-xs text-on-surface-variant text-center mt-4 flex items-center justify-center gap-1.5">
           <Shield size={10} className="text-primary" />
-          Privacy-first. GDPR & FERPA aligned.
+          Privacy-first · VIT-only platform · FERPA aligned
         </p>
       </div>
     </div>

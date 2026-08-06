@@ -26,7 +26,7 @@ export function IdentityRequestModal({ isOpen, onClose, anonymousId, onSuccess }
     setError('');
     
     try {
-      const res = await fetch(`${API_URL}/api/psychologist/student/${anonymousId}/request-identity`, {
+      const res = await fetch(`${API_URL}/api/psychologist/student/${encodeURIComponent(anonymousId)}/request-identity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason })
@@ -100,7 +100,9 @@ export function IdentityRequestModal({ isOpen, onClose, anonymousId, onSuccess }
               </div>
             </div>
             <h2 className="text-2xl font-heading font-black mb-2 text-success">Identity Revealed</h2>
-            <p className="text-text-muted text-sm mb-8">This reveal has been logged in the audit trail.</p>
+            <p className="text-text-muted text-sm mb-8">
+              An immutable record (<code className="text-primary font-mono font-bold">CLINICAL_IDENTITY_REVEAL</code>) has been permanently committed to the database <strong className="text-text">AuditLog</strong> table in accordance with SRS Section 16.
+            </p>
             
             <div className="bg-background border border-border rounded-xl p-6 text-left space-y-4 mb-8">
               <div>
@@ -108,7 +110,7 @@ export function IdentityRequestModal({ isOpen, onClose, anonymousId, onSuccess }
                 <p className="text-lg font-medium">{identityData.real_name}</p>
               </div>
               <div>
-                <p className="text-xs text-text-muted font-bold uppercase tracking-wider mb-1">University Email</p>
+                <p className="text-xs text-text-muted font-bold uppercase tracking-wider mb-1">VIT Email Address</p>
                 <p className="text-lg font-medium">{identityData.real_email}</p>
               </div>
               <div>

@@ -349,36 +349,44 @@ export default function WellnessExercises() {
   ];
 
   return (
-    <div style={styles.page}>
-      {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerRow}>
-          <button style={styles.backBtn} onClick={() => navigate(-1)} aria-label="Go back">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-20">
+      {/* Header Banner */}
+      <div className="flex items-center justify-between gap-4 bg-surface-container/60 p-4 sm:p-5 rounded-2xl border border-border-structural/80 backdrop-blur-xl shadow-md">
+        <div className="flex items-center gap-3.5">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2.5 rounded-xl bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface-variant hover:text-white border border-border-structural/60 transition-colors active:scale-95 flex items-center justify-center shrink-0 shadow-sm"
+            aria-label="Go back"
+          >
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-heading)', margin: 0 }}>
-              Breathe &amp; Reset
+            <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>Breathe &amp; Reset Studio</span>
+              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] uppercase font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Mindfulness</span>
             </h1>
-            <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>Guided wellness exercises</p>
+            <p className="text-xs sm:text-sm text-on-surface-variant font-medium mt-0.5">
+              Guided acoustic relaxation, clinical somatic breathing, and daily wellness challenges.
+            </p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main style={styles.main}>
+      <main className="space-y-6">
         {/* ── Page-level tabs ── */}
-        <div style={{ display: 'flex', background: 'var(--color-surface-bright)', borderRadius: 14, padding: 4, gap: 2 }}>
+        <div className="flex bg-surface-container-highest/60 backdrop-blur-md rounded-2xl p-1.5 gap-1.5 border border-border-structural">
           {PAGE_TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setPageTab(key)}
-              style={{
-                flex: 1, padding: '9px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: pageTab === key ? 'var(--color-surface-dim)' : 'transparent',
-                color: pageTab === key ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                transition: 'all 0.2s',
-              }}
+            <button 
+              key={key} 
+              onClick={() => setPageTab(key)}
+              className={`flex-1 py-2.5 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                pageTab === key 
+                  ? 'bg-gradient-to-r from-interactive-primary/30 to-secondary/30 text-secondary-fixed border border-interactive-primary/40 shadow-md' 
+                  : 'text-on-surface-variant hover:text-white hover:bg-white/5'
+              }`}
             >
-              <Icon size={14} /> {label}
+              <Icon size={16} className={pageTab === key ? 'text-secondary-fixed' : 'text-outline'} /> 
+              <span>{label}</span>
             </button>
           ))}
         </div>

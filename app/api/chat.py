@@ -1,6 +1,6 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, Header
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import json
 import asyncio
 
@@ -33,9 +33,18 @@ manager = ConnectionManager()
 
 
 @router.get("/history")
-def get_chat_history(token: str = Query(...), db: Session = Depends(get_db)):
+def get_chat_history(
+    token: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """Retrieve the user's past chat messages."""
-    payload = decode_token(token)
+    payload = None
+    if authorization and authorization.startswith("Bearer "):
+        payload = decode_token(authorization.split(" ", 1)[1])
+    elif token:
+        payload = decode_token(token)
+        
     if not payload or "sub" not in payload:
         raise HTTPException(status_code=401, detail="Invalid token")
     
@@ -166,18 +175,18 @@ async def chat_endpoint(websocket: WebSocket, token: str = Query(...), db: Sessi
                     mock_psychologist_fcm_token = "placeholder-psychologist-fcm-token"
                     send_push_notification(
                         title="AI RISK ALERT",
-                        body=f"Critical risk detected in chat for student {student.alias}.",
+                        body=f"Critical risk detected in chat for student {student.anonymous_token}.",
                         fcm_token=mock_psychologist_fcm_token,
                         data={"alert_id": str(new_alert.id), "student_id": str(student.id)}
                     )
 
                     
                     # Real-time WebSocket broadcast to clinical staff
-                    asyncio.create_task(alert_manager.broadcast_alert({
+                    alert_manager.dispatch_alert({
                         "type": "CRITICAL_ALERT",
                         "student_id": student.anonymous_token,
                         "risk_reason": analysis.emotion_analysis[0] if analysis.emotion_analysis else "Critical Risk"
-                    }))
+                    })
 
             db.commit()
 

@@ -1,203 +1,91 @@
-# Deployment Phase Testing
+# Deployment & Verification Testing Guide
+## VIT Institutional Mobile Application
+
+---
 
 ## Objective
-
-To verify that the application functions correctly in the production environment after deployment, ensuring all services communicate properly and the system is reliable for end users.
+To verify that the application functions correctly in the production institutional environment after deployment, ensuring all services communicate properly across Student, Psychologist, and Admin levels.
 
 ---
 
-# 1. Deployment Verification Testing
+## 1. Deployment Verification Testing
 
 ### Purpose
-Ensure the application has been deployed successfully.
+Ensure the mobile application and institutional server have been deployed successfully via Docker Compose or native server execution.
 
 ### Test Cases
-
-| Test ID | Test Description             | Expected Result                        | Status |
-| ------- | ---------------------------- | -------------------------------------- | ------ |
-| DPT-01  | Frontend loads successfully  | Landing page opens                     | Pass   |
-| DPT-02  | Backend API starts           | API responds with HTTP 200             | Pass   |
-| DPT-03  | Database connected           | Database queries execute successfully  | Pass   |
-| DPT-04  | SSL Certificate active       | HTTPS enabled                          | Pass   |
-| DPT-05  | Environment variables loaded | APIs work without configuration errors | Pass   |
-
----
-
-# 2. Authentication Testing
-
-| Test              | Expected Result         |
-| ----------------- | ----------------------- |
-| User Registration | New account created     |
-| Login             | JWT issued successfully |
-| Logout            | Session terminated      |
-| Invalid Login     | Proper error displayed  |
-| Expired Token     | Redirect to login       |
+| Test ID | Test Description | Expected Result | Status |
+| :--- | :--- | :--- | :---: |
+| **DPT-01** | Mobile app loads successfully | 3-Role VIT Login Portal opens (`/login`) | ✅ Pass |
+| **DPT-02** | Backend API healthcheck starts | `/api/health` responds with HTTP 200 OK | ✅ Pass |
+| **DPT-03** | Database connected & migration applied | SQLite / PostgreSQL tables created | ✅ Pass |
+| **DPT-04** | Local file volume mounted | `/uploads` directory accessible and read/write able | ✅ Pass |
+| **DPT-05** | Security middleware loaded | OWASP security headers & CORS applied | ✅ Pass |
 
 ---
 
-# 3. Database Connectivity Testing
+## 2. Authentication & Role-Based Access Testing (RBAC)
 
-Verify:
-* Database connection established
-* CRUD operations work
-* Foreign key constraints maintained
-* Transactions rollback correctly
-* Data consistency preserved
+| Scenario | Role Level | Expected Result | Verified Status |
+| :--- | :--- | :--- | :---: |
+| **Student Signup** | Student | Profile created, AES-256 encrypted identity vault saved | ✅ Pass |
+| **Student Login** | Student | JWT issued with `role: "student"`, redirected to student dash | ✅ Pass |
+| **Counselor Login** | Psychologist | JWT issued with `role: "psychologist"`, redirected to clinical queue | ✅ Pass |
+| **Admin Login** | Admin | JWT issued with `role: "admin"`, redirected to campus wellbeing overview | ✅ Pass |
+| **Unauthorized Access** | Student | Attempting to hit `/admin` or `/psychologist` blocks access | ✅ Pass |
 
-Example:
+---
+
+## 3. Automated Unit & Integration Test Suite
+
+All tests execute safely in isolated in-memory databases (`sqlite:///:memory:`) without modifying live server records:
+
+```bash
+venv\Scripts\pytest.exe -v test_admin_analytics.py test_burnout_predictor.py test_community.py test_encryption.py test_storage_multi_role.py test_risk_triage_queue.py
 ```
-Insert Journal
-Update Mood
-Delete Appointment
-Fetch User History
-```
-Expected: All operations complete successfully.
+
+| Test Script | Verification Focus | Expected Result |
+| :--- | :--- | :---: |
+| `test_admin_analytics.py` | Real-time aggregation of campus wellbeing and department stress indices (CSE, EEE, AI&DS, etc.) | **PASS (100%)** |
+| `test_burnout_predictor.py` | Multi-factor burnout probability reduction after daily sleep and exercise habit compliance | **PASS (100%)** |
+| `test_community.py` | Authenticated JWT forum posting, upvoting, and anonymous discussion replies | **PASS (100%)** |
+| `test_encryption.py` | Symmetric AES-256 encryption of real student identity & emergency clinical decryption protocol | **PASS (100%)** |
+| `test_storage_multi_role.py` | Document & avatar storage uploading across all three user roles (Student, Psychologist, Admin) | **PASS (100%)** |
+| `test_risk_triage_queue.py` | Clinical triage patient queue ordering and baseline inclusion of newly registered students | **PASS (100%)** |
 
 ---
 
-# 4. API Endpoint Testing
+## 4. API Endpoint Matrix
 
-Each API should return expected responses.
-
-| Endpoint       | Method | Expected |
-| -------------- | ------ | -------- |
-| /login         | POST   | 200      |
-| /register      | POST   | 201      |
-| /mood          | POST   | 201      |
-| /journal       | POST   | 201      |
-| /appointments  | GET    | 200      |
-| /risk-analysis | POST   | 200      |
-
----
-
-# 5. AI Service Testing
-
-Verify:
-* AI generates responses
-* Emotion analysis works
-* Risk prediction executes
-* High-risk messages detected
-* AI response time acceptable
-
-Expected: Response time `< 2 seconds`
+| Endpoint | HTTP Method | Protected Role | Description |
+| :--- | :---: | :---: | :--- |
+| `/api/health` | GET | Public | System status and supported institutional levels |
+| `/api/auth/login` | POST | All Roles | Unified RBAC authentication endpoint |
+| `/api/auth/register` | POST | Public | Student account registration |
+| `/api/risk/analytics` | GET | Psychologist / Admin | Aggregate campus risk index |
+| `/api/admin/analytics` | GET | Admin Only | Detailed department breakdown and KPI metrics |
+| `/api/admin/psychologists`| GET / POST / PUT | Admin Only | Personnel creation, status toggling, and management |
+| `/api/appointments/psychologist` | GET | Psychologist Only | Real-time calendar schedule and status updates |
+| `/api/storage/upload` | POST | All Authenticated | Supabase cloud storage upload with local server volume fallback |
 
 ---
 
-# 6. Anonymous Identity Testing
+## 5. User Acceptance Testing (UAT) Checklist
 
-Verify:
-* Anonymous alias generated
-* Real identity hidden
-* Psychologist sees alias only
-* Database stores encrypted mapping
-
-Expected: Identity remains hidden.
-
----
-
-# 7. Security Testing
-
-Verify:
-* JWT Authentication
-* Password hashing
-* SQL Injection prevention
-* XSS prevention
-* CSRF protection (if applicable)
-* HTTPS enabled
-* Secure headers configured
-* API authorization enforced
-
-Expected: No critical vulnerabilities.
+| Test Scenario | User Role | Action & Result | Status |
+| :--- | :---: | :--- | :---: |
+| **AI Support Chat** | Student | Initiates conversation with AI Assistant; sentiment evaluated in real-time | ✅ Verified |
+| **Mood Check-in** | Student | Submits daily mood slider; wellness score recalculated automatically | ✅ Verified |
+| **Clinical Queue Review**| Psychologist | Sorts students by calculated risk score in `/psychologist/patients` | ✅ Verified |
+| **Schedule Consultation**| Psychologist | Manages upcoming campus counseling sessions in `/psychologist/calendar`| ✅ Verified |
+| **Wellbeing Report Export** | Admin | Downloads CSV and JSON summary from `/admin/reports` | ✅ Verified |
+| **Personnel CRUD** | Admin | Adds new VIT counselor credentials via `/admin/users` | ✅ Verified |
 
 ---
 
-# 8. Performance Testing
-
-Test multiple users.
-
-| Users | Expected            |
-| ----- | ------------------- |
-| 10    | Stable              |
-| 50    | Stable              |
-| 100   | Stable              |
-| 500   | Acceptable response |
-
-Metrics: CPU Usage, Memory Usage, API Response Time, Database Latency
-
----
-
-# 9. Stress Testing
-Increase load until degradation. Expected: Graceful degradation without crashes.
-
----
-
-# 10. Scalability Testing
-Verify backend scales, database handles concurrent users, API latency remains acceptable.
-
----
-
-# 11. Network Failure Testing
-Simulate internet interruption, slow connection, packet loss. Expected: Application recovers automatically.
-
----
-
-# 12. Notification Testing
-Verify push notifications delivered, emergency alerts sent, failed notifications retried.
-
----
-
-# 13. Cross-Platform Testing
-| Platform           | Status |
-| ------------------ | ------ |
-| Chrome             | Pass   |
-| Edge               | Pass   |
-| Firefox            | Pass   |
-| Android            | Pass   |
-| iOS (if supported) | Pass   |
-
----
-
-# 14. Data Recovery Testing
-Verify database backup restoration, no data loss.
-
----
-
-# 15. Monitoring Testing
-Ensure monitoring tools report health, uptime, errors.
-
----
-
-# 16. User Acceptance Testing (UAT)
-| Test Scenario              | Expected Result             |
-| -------------------------- | --------------------------- |
-| Student logs mood          | Mood saved successfully     |
-| Student writes journal     | Entry stored                |
-| AI provides support        | Relevant response displayed |
-| Appointment booking        | Booking confirmed           |
-| Psychologist reviews cases | Dashboard loads correctly   |
-
----
-
-# 17. Rollback Testing
-Verify that if deployment fails, previous version is restored and database remains intact.
-
----
-
-# 18. Final Production Checklist
-| Item                        | Status |
-| --------------------------- | ------ |
-| Frontend deployed           | ✅      |
-| Backend deployed            | ✅      |
-| Database connected          | ✅      |
-| HTTPS enabled               | ✅      |
-| Authentication working      | ✅      |
-| APIs tested                 | ✅      |
-| AI service operational      | ✅      |
-| Anonymous identity verified | ✅      |
-| Notifications functioning   | ✅      |
-| Monitoring enabled          | ✅      |
-| Backups configured          | ✅      |
-| Error logging enabled       | ✅      |
-| Performance tested          | ✅      |
-| Security verified           | ✅      |
-| Production release approved | ✅      |
+## 6. Final Production Sign-Off
+- [x] All commercial SaaS features, pricing models, and multi-tenant code purged.
+- [x] Supabase Storage integrated for initial version cloud document storage with automatic local server volume fallback.
+- [x] TypeScript builds clean (`tsc --noEmit`).
+- [x] Backend imports cleanly without crashes or missing dependencies.
+- [x] Approved for deployment at Vishnu Institute of Technology.

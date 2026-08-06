@@ -23,10 +23,9 @@ def seed_psychologists(db: Session) -> None:
     """Seed default psychologists if the table is empty."""
     if db.query(Psychologist).count() == 0:
         defaults = [
+            Psychologist(name="RAM SIR", specialization="Head Clinical Psychologist"),
             Psychologist(name="Dr. Sarah Mehta", specialization="Anxiety & Depression"),
             Psychologist(name="Dr. Raj Verma", specialization="Academic Stress & Burnout"),
-            Psychologist(name="Dr. Priya Nair", specialization="Crisis Intervention"),
-            Psychologist(name="Dr. Arun Kumar", specialization="Relationship & Social Stress"),
         ]
         db.add_all(defaults)
         db.commit()
@@ -57,6 +56,14 @@ def get_available_slots(db: Session = Depends(get_db)):
     return slots[:24]  # first 24 slots
 
 
+@router.get("/psychologists")
+def get_psychologists(db: Session = Depends(get_db)):
+    """Return all available psychologists."""
+    seed_psychologists(db)
+    psychologists = db.query(Psychologist).all()
+    return [{"id": p.id, "name": p.name, "specialization": p.specialization} for p in psychologists]
+
+
 @router.post("/book")
 def book_appointment(
     req: BookRequest,
@@ -73,7 +80,7 @@ def book_appointment(
         psychologist_id=req.psychologist_id,
         slot_time=slot_dt,
         notes=req.notes,
-        status="confirmed",
+        status="pending",
     )
     db.add(appt)
     db.commit()
@@ -113,15 +120,35 @@ def get_my_appointments(
 @router.get("/all")
 def get_all_appointments(db: Session = Depends(get_db)):
     """Psychologist views all appointments."""
-    appts = db.query(Appointment).join(Student).order_by(Appointment.slot_time.asc()).all()
+    appts = db.query(Appointment).order_by(Appointment.slot_time.asc()).all()
     result = []
     for a in appts:
         psych = db.query(Psychologist).filter(Psychologist.id == a.psychologist_id).first()
+        student = db.query(Student).filter(Student.id == a.student_id).first()
         result.append(
             {
                 "id": a.id,
-                "anonymous_id": a.student.anonymous_token,
+                "anonymous_id": student.anonymous_token if student else "Unknown",
                 "psychologist_name": psych.name if psych else "Unknown",
+                "slot_time": a.slot_time.isoformat() if a.slot_time else None,
+                "status": a.status,
+                "notes": a.notes,
+            }
+        )
+    return result
+
+
+@router.get("/psychologist")
+def get_psychologist_appointments(db: Session = Depends(get_db)):
+    """Psychologist calendar view — all appointments with anonymous student ID."""
+    appts = db.query(Appointment).order_by(Appointment.slot_time.asc()).all()
+    result = []
+    for a in appts:
+        student = db.query(Student).filter(Student.id == a.student_id).first()
+        result.append(
+            {
+                "id": a.id,
+                "anonymous_id": student.anonymous_token if student else "Unknown",
                 "slot_time": a.slot_time.isoformat() if a.slot_time else None,
                 "status": a.status,
                 "notes": a.notes,
@@ -131,6 +158,7 @@ def get_all_appointments(db: Session = Depends(get_db)):
 
 class AppointmentStatusUpdate(BaseModel):
     status: str
+    new_time: Optional[str] = None
 
 @router.put("/{appointment_id}/status")
 def update_appointment_status(appointment_id: int, req: AppointmentStatusUpdate, db: Session = Depends(get_db)):
@@ -139,10 +167,17 @@ def update_appointment_status(appointment_id: int, req: AppointmentStatusUpdate,
     if not appt:
         raise HTTPException(status_code=404, detail="Appointment not found.")
         
-    if req.status not in ["pending", "confirmed", "cancelled", "completed"]:
+    if req.status not in ["pending", "confirmed", "cancelled", "completed", "rescheduled"]:
         raise HTTPException(status_code=400, detail="Invalid status")
         
     appt.status = req.status
+    if req.status == "rescheduled" and req.new_time:
+        try:
+            slot_dt = datetime.fromisoformat(req.new_time)
+            appt.slot_time = slot_dt
+        except ValueError:
+            pass
+            
     db.commit()
     return {"status": appt.status}
 

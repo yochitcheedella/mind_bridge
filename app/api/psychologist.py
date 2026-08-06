@@ -10,6 +10,8 @@ from app.models.user import Student
 from app.models.chat import ChatMessage
 from app.models.mood import MoodLog
 from app.models.clinical import CaseNote, FollowUp
+from app.models.audit import AuditLog
+from app.models.alert import RiskAlert
 from app.api.chat import manager
 
 router = APIRouter(prefix="/api/psychologist", tags=["psychologist"])
@@ -126,14 +128,17 @@ async def send_counselor_message(anonymous_id: str, req: ChatMessageRequest, db:
 
 @router.post("/student/{anonymous_id}/resolve")
 def resolve_student_case(anonymous_id: str, db: Session = Depends(get_db)):
-    """Resolves the case by resetting the student's risk score to a baseline (0.0)."""
+    """Resolves the case by resetting the student's risk score to a baseline (0.0) and resolving active SOS/risk alerts."""
     student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
     student.risk_score = 0.0
+    active_alerts = db.query(RiskAlert).filter(RiskAlert.student_id == student.id, RiskAlert.status == "active").all()
+    for alert in active_alerts:
+        alert.status = "resolved"
     db.commit()
-    return {"status": "success", "message": "Case resolved"}
+    return {"status": "success", "message": "Case and related alerts resolved"}
 
 
 # ── Case Notes ─────────────────────────────────────────────────────────────────
@@ -233,19 +238,23 @@ def request_student_identity(anonymous_id: str, req: IdentityRequestPayload, db:
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    if student.risk_score < 0.8:
-        raise HTTPException(status_code=403, detail="Identity reveal is only permitted for critical risk cases (score >= 0.8)")
-        
-    # In a real app, this would send an approval request to a University Admin.
-    # For now, we mock the approval process and return the decrypted identity.
+    # Note: Anonymity reveal is strictly monitored. Whether acute crisis or clinical emergency override, an immutable audit log is committed.
     from app.core.security import decrypt_data
     
     real_name = decrypt_data(student.encrypted_name) if student.encrypted_name else "Unknown"
     real_email = decrypt_data(student.encrypted_email) if student.encrypted_email else "Unknown"
     real_phone = decrypt_data(student.encrypted_phone) if student.encrypted_phone else "Unknown"
     
-    # Log this extremely sensitive action
-    print(f"CRITICAL AUDIT: Psychologist requested identity for alias {anonymous_id}. Reason: {req.reason}")
+    # Permanently log this sensitive action to the database AuditLog table as required by SRS section 16
+    audit_record = AuditLog(
+        action="CLINICAL_IDENTITY_REVEAL",
+        target_student_id=student.id,
+        requested_by="Psychologist",
+        reason=req.reason
+    )
+    db.add(audit_record)
+    db.commit()
+    print(f"CRITICAL AUDIT: Psychologist requested identity for alias {anonymous_id}. Reason: {req.reason}. Recorded to DB AuditLog id={audit_record.id}")
     
     return {
         "status": "approved",

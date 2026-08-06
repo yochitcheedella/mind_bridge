@@ -1,13 +1,21 @@
 import os
 import json
-import firebase_admin
-from firebase_admin import credentials, messaging
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    firebase_admin = None
+    credentials = None
+    messaging = None
+    FIREBASE_AVAILABLE = False
+
 from typing import Optional
 
 # Initialize Firebase App
 firebase_creds = os.getenv("FIREBASE_CREDENTIALS_JSON")
 
-if firebase_creds:
+if FIREBASE_AVAILABLE and firebase_creds:
     try:
         if firebase_creds.startswith("'") and firebase_creds.endswith("'"):
             firebase_creds = firebase_creds[1:-1]

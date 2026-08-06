@@ -1,14 +1,12 @@
-Since we've been developing **MindBridge AI** (the anonymous AI-powered mental health platform for students), below is a **professional Project Design Report (PDR)** suitable for hackathons, academic submission, incubation, and startup pitching.
-
----
-
 # PROJECT DESIGN REPORT (PDR)
 
 # MindBridge AI
 
-### AI-Powered Anonymous Student Mental Health & Crisis Support Platform
+### AI-Powered Anonymous Student Mental Health & Crisis Support Mobile Application
 
 **Version:** 1.0
+
+**Institution:** Vishnu Institute of Technology (VIT)
 
 **Prepared By:**
 Cheedella Bala Venkata Satya Yochit
@@ -45,491 +43,344 @@ B.Tech CSE (AI & DS)
 
 # 1. Introduction
 
-Mental health has become one of the biggest concerns among students.
+Mental health has become one of the biggest concerns among students at Vishnu Institute of Technology.
 
-Academic pressure
+Common stressors include:
 
-Financial issues
+- Academic pressure and examination stress
+- Financial issues
+- Relationship stress
+- Loneliness and homesickness
+- Anxiety and depression
+- Career uncertainty
+- Placement and competition pressure
 
-Relationship stress
+Unfortunately, most VIT students never seek professional help from the college counseling center due to:
 
-Loneliness
+- Fear of judgment from peers, faculty, and family
+- Social stigma
+- Privacy concerns — fear that faculty or parents will be informed
+- Hesitation to walk into the counseling center physically
 
-Anxiety
-
-Depression
-
-Career uncertainty
-
-Unfortunately, most students never seek professional help due to:
-
-Fear of judgment
-
-Social stigma
-
-Privacy concerns
-
-Fear of faculty involvement
-
-Fear of parents being informed
-
-MindBridge AI is designed to eliminate these barriers by providing a completely anonymous AI-powered mental health support system while enabling psychologists to intervene only during high-risk situations.
+MindBridge AI is designed to eliminate these barriers by providing a **completely anonymous AI-powered mental health support mobile application**, available to all VIT students on their smartphones, while enabling VIT's psychologists to intervene only during high-risk situations.
 
 ---
 
 # 2. Problem Statement
 
-Students experience severe mental health issues but avoid counseling because they fear losing their privacy.
+VIT students experience severe mental health issues but avoid counseling because they fear losing their privacy.
 
-Current counseling systems:
+Current VIT counseling system limitations:
 
-Require identity disclosure
+- Requires physical visit and identity disclosure
+- Lacks anonymity
+- Has long appointment delays
+- Cannot detect suicide risk early
+- Cannot provide 24×7 support
+- No integration between mood patterns and counseling prioritization
 
-Lack anonymity
+There is currently no integrated platform at VIT that combines:
 
-Have long appointment delays
-
-Cannot detect suicide risk early
-
-Cannot provide 24×7 support
-
-There is currently no integrated platform that combines:
-
-AI support
-
-Professional counseling
-
-Complete anonymity
-
-Crisis detection
-
-Emergency intervention
+- AI emotional support
+- Professional counseling
+- Complete anonymity
+- Crisis detection
+- Emergency intervention
 
 ---
 
 # 3. Existing System
 
-Current solutions include:
+Current approaches VIT students use:
 
-College counseling
-
-WhatsApp groups
-
-Friends
-
-General AI chatbots
-
-Traditional therapy
+- College counseling center (physical, requires disclosure)
+- WhatsApp groups with friends
+- General AI chatbots (no institutional integration)
+- Traditional therapy (off-campus, costly)
 
 Limitations:
 
-Not anonymous
-
-No institutional integration
-
-No AI crisis prediction
-
-Limited psychologist availability
-
-No emergency workflow
-
-No risk analytics
+- Not anonymous within the institution
+- No institutional integration with VIT data
+- No AI crisis prediction
+- Limited psychologist availability
+- No emergency escalation workflow
+- No risk analytics
 
 ---
 
 # 4. Proposed System
 
-MindBridge AI provides:
+MindBridge AI provides VIT students with:
 
-✓ Anonymous student accounts
+✓ Anonymous student accounts (VIT email registered, identity encrypted)
 
-✓ AI emotional support
+✓ AI emotional support companion (24×7 on mobile)
 
-✓ AI mood tracking
+✓ AI mood tracking and trend analysis
 
-✓ AI conversation analysis
+✓ AI conversation and journal analysis
 
-✓ Crisis prediction
+✓ Crisis and suicide risk prediction
 
-✓ Psychologist dashboard
+✓ Psychologist dashboard with prioritized risk queue
 
-✓ Emergency intervention
+✓ Emergency intervention with controlled identity reveal
 
-✓ Secure encrypted storage
+✓ Secure AES-256 encrypted storage
 
-✓ Anonymous counseling
+✓ Anonymous counseling with VIT psychologists
 
-✓ Appointment booking
+✓ In-app appointment booking
 
-✓ Self-help exercises
+✓ Self-help exercises and breathing techniques
 
-✓ Journal
+✓ Private encrypted journal
 
-✓ Mood history
+✓ Mood history and wellness analytics
 
-✓ Wellness analytics
+✓ Anonymous peer support community
 
 ---
 
 # 5. Objectives
 
-Primary Objectives
+## Primary Objectives
 
-Reduce student suicides
+- Reduce student suicides and mental health crises at VIT
+- Increase counseling participation by eliminating the stigma of walking in
+- Maintain complete anonymity for every student
+- Provide AI support 24×7 through mobile app
+- Enable VIT psychologists to manage cases efficiently with AI-assisted prioritization
 
-Increase counseling participation
+## Secondary Objectives
 
-Maintain anonymity
-
-Provide AI support 24×7
-
-Enable psychologists to manage many students efficiently
-
-Secondary Objectives
-
-Early detection
-
-Mental wellness improvement
-
-Stress management
-
-Institutional analytics
-
-Prevent crisis escalation
+- Early detection of at-risk students before crises occur
+- Improve overall mental wellness of the VIT student population
+- Provide stress management tools accessible on mobile
+- Deliver institutional anonymous analytics to VIT administration
+- Prevent crisis escalation through proactive intervention
 
 ---
 
 # 6. Scope
 
-### Students
+### Students (VIT)
 
-Anonymous chat
+- Anonymous AI chat (24×7)
+- Daily mood tracking
+- AI therapist companion
+- Anonymous counseling with VIT psychologists
+- Emergency SOS help
+- Private journal
+- Breathing and mindfulness exercises
+- Mental health self-assessments
+- Anonymous community forum
+- Wellness challenges and habit tracker
 
-Mood tracking
+### Psychologists (VIT)
 
-AI therapist
+- AI-prioritized risk dashboard
+- Anonymous counseling sessions
+- Case management and session notes
+- Push notification alerts for high-risk students
+- Emergency response coordination
+- Student emotional history (anonymous)
 
-Counseling
+### Admin (VIT Administration)
 
-Emergency help
+- Anonymous campus wellbeing analytics
+- Department-level stress trend reports
+- Monthly wellbeing reports
+- Psychologist account management
+- Platform usage statistics
 
-Journal
-
-Breathing exercises
-
-Assessments
-
-### Psychologists
-
-Risk dashboard
-
-Anonymous counseling
-
-Case management
-
-Alerts
-
-Emergency response
-
-### Institution
-
-Anonymous analytics
-
-Department stress reports
-
-Monthly reports
-
-Student wellness trends
+> **Out of scope:** Multi-university access, SaaS features, subscription billing, web browser access, desktop usage.
 
 ---
 
 # 7. Stakeholders
 
-Students
-
-Psychologists
-
-College Administration
-
-Emergency Team
-
-AI System
-
-System Administrator
+| Stakeholder | Role |
+|---|---|
+| VIT Students | Primary users — seeking emotional support anonymously |
+| VIT Psychologists | Counselors — providing support, managing cases |
+| VIT Administration (Admin) | Oversight — monitoring campus wellbeing via aggregate data |
+| AI System | Automated support and risk detection engine |
+| VIT IT Department | Server hosting and infrastructure support |
+| Emergency Response Team (VIT) | Activated during critical crisis events |
 
 ---
 
 # 8. System Modules
 
-## Module 1
+## Module 1 — Authentication
 
-Authentication
-
-Anonymous Registration
-
-OTP Verification
-
-Token Generation
-
-Anonymous Identity Mapping
+- Anonymous registration using VIT college email
+- OTP verification via email
+- JWT token generation (access + refresh)
+- Anonymous identity alias mapping
+- Role assignment: Student / Psychologist / Admin
 
 ---
 
-## Module 2
+## Module 2 — Student Dashboard (Mobile)
 
-Student Dashboard
-
-Mood tracker
-
-Daily journal
-
-Stress score
-
-AI Assistant
-
-Appointment booking
-
-History
-
-Notifications
+- Daily mood check-in
+- Today's wellness score
+- AI Companion shortcut
+- Upcoming appointments
+- Journal shortcut
+- Breathing exercises
+- Emergency SOS button
+- Push notifications
 
 ---
 
-## Module 3
+## Module 3 — AI Mental Health Companion
 
-AI Mental Health Assistant
-
-Emotion detection
-
-Sentiment analysis
-
-Conversation memory
-
-Safety monitoring
-
-Recommendation engine
-
-CBT-based guidance
-
-Mindfulness coaching
+- 24×7 natural language emotional support
+- Emotion and sentiment detection
+- Conversation memory (session-based)
+- Safety monitoring
+- Personalized coping recommendation engine
+- CBT-based guidance
+- Mindfulness and breathing coaching
+- Risk score computation
 
 ---
 
-## Module 4
+## Module 4 — Psychologist Dashboard (Mobile)
 
-Psychologist Dashboard
-
-Live risk queue
-
-Student sessions
-
-Anonymous messaging
-
-Emergency alerts
-
-Notes
-
-Risk history
-
-Appointments
+- Live AI-prioritized risk queue
+- Anonymous student session management
+- Secure messaging with students
+- Emergency push notifications
+- Case notes (private to psychologist)
+- Risk score history per alias
+- Appointment calendar
 
 ---
 
-## Module 5
+## Module 5 — Risk Detection Engine
 
-Risk Detection Engine
+Detects risk signals for:
 
-Detects:
+- Suicidal ideation
+- Self-harm
+- Severe depression
+- Chronic anxiety
+- Panic attacks
+- Social isolation
+- Burnout
+- Sleep disorders
+- Eating disorder indicators
 
-Suicide
-
-Self-harm
-
-Depression
-
-Anxiety
-
-Panic attacks
-
-Isolation
-
-Burnout
-
-Violence
-
-Sleep issues
-
-Eating disorders
+Outputs a continuous **risk score 0–100** updated after every interaction.
 
 ---
 
-## Module 6
+## Module 6 — Emergency Response Module
 
-Emergency Response Module
-
-High-risk detection
-
-Psychologist notification
-
-Risk verification
-
-Emergency identification
-
-Institution notification
-
-Parent notification (if policy allows)
-
-Medical emergency
+- Critical-threshold detection triggers immediate psychologist alert
+- Psychologist reviews conversation and verifies risk
+- Authorized multi-step identity reveal process
+- VIT emergency team notification
+- Student emergency contact notification (per VIT policy)
+- Full audit trail of all emergency actions
 
 ---
 
-## Module 7
+## Module 7 — Admin Analytics Module
 
-Analytics Module
-
-Daily stress index
-
-Department trends
-
-College trends
-
-Mood statistics
-
-AI usage
-
-Counseling statistics
-
-Emergency reports
+- Daily campus stress index (anonymized)
+- Department-level wellbeing trends
+- College-wide mood statistics
+- AI usage and chat volume statistics
+- Appointment and counseling statistics
+- Anonymous emergency incident count reports
 
 ---
 
 # 9. Functional Requirements
 
-Student shall:
+## Student shall:
 
-Register anonymously
+- Register anonymously using VIT college email
+- Chat with AI Companion 24×7 via mobile
+- Book appointments with VIT psychologists
+- Track daily mood with emoji-scale logging
+- Maintain a private encrypted journal
+- View mood history and wellness trends
+- Receive personalized wellness recommendations
+- Trigger emergency SOS when in crisis
+- Participate in anonymous community forum
 
-Chat with AI
+## Psychologist shall:
 
-Book appointments
+- Receive push alerts for high-risk student aliases
+- View AI-prioritized risk queue
+- Chat securely with anonymous students
+- Manage counseling appointments
+- Record private session notes
+- View student emotional history (anonymous)
+- Initiate emergency identity reveal when authorized
 
-Track mood
+## Admin shall:
 
-Maintain journal
-
-View history
-
-Receive recommendations
-
-Psychologist shall:
-
-Receive alerts
-
-View cases
-
-Chat anonymously
-
-Manage appointments
-
-Record notes
-
-Administrator shall:
-
-Manage psychologists
-
-Generate reports
-
-Manage users
-
-Configure AI settings
+- Manage VIT psychologist accounts
+- View anonymized campus wellbeing analytics
+- Generate and download wellbeing reports
+- Monitor platform usage statistics
+- Review system audit logs
 
 ---
 
 # 10. Non-Functional Requirements
 
-Availability: 99.9%
-
-Scalability
-
-Encryption
-
-Performance
-
-Accessibility
-
-Reliability
-
-Security
-
-Privacy
-
-GDPR compliance
-
-FERPA compliance
-
-Mobile responsiveness
-
-Cloud deployment
+| Requirement | Specification |
+|---|---|
+| Availability | 99.9% uptime during VIT academic calendar |
+| Scalability | Supports full VIT enrollment (~5,000–10,000 students) |
+| Encryption | AES-256 at rest; TLS 1.3 in transit |
+| Performance | AI response < 3s; dashboard load < 2s; mood log < 1s |
+| Accessibility | Dark mode, screen reader support, adjustable font size |
+| Reliability | Daily automatic backup; failover database replica |
+| Security | JWT auth, RBAC, rate limiting, audit logging |
+| Privacy | No PII visible to psychologists during normal counseling |
+| Platform | Android 5.0+ and iOS 13+ mobile app only |
+| Compliance | FERPA-aligned data handling; VIT institutional policy compliance |
 
 ---
 
 # 11. System Workflow
 
 ```
-Student
-
-↓
-
-Anonymous Login
-
-↓
-
-Mood Check
-
-↓
-
-AI Chat
-
-↓
-
-Emotion Analysis
-
-↓
-
-Risk Detection
-
-↓
-
-Low Risk
-↓
-
-AI Support
-
-OR
-
-Medium Risk
-↓
-
-Counselor Recommendation
-
-OR
-
-High Risk
-↓
-
-Psychologist Alert
-
-↓
-
-Human Verification
-
-↓
-
-Emergency Protocol
-
-↓
-
-Case Closed
+VIT Student opens Mobile App
+           ↓
+   Anonymous Login (JWT)
+           ↓
+   Daily Mood Check-in
+           ↓
+      AI Chat Session
+           ↓
+    Emotion Analysis
+           ↓
+   Risk Score Computed
+           ↓
+  ┌────────────────────────────────────┐
+  │                                    │
+Low Risk (0–30)   Medium (31–60)   High/Critical (61–100)
+     ↓                 ↓                    ↓
+AI Support    Psychologist Rec.    Immediate Psychologist
+& Tips        + Booking Prompt          Push Alert
+                                         ↓
+                              Psychologist Reviews Case
+                                         ↓
+                             Emergency Protocol if Critical
+                                         ↓
+                                   Case Resolved
+                                   & Logged
 ```
 
 ---
@@ -537,403 +388,299 @@ Case Closed
 # 12. High-Level Architecture
 
 ```
-React Web App
-
-↓
-
-FastAPI Backend
-
-↓
-
-Authentication Service
-
-↓
-
-AI Engine
-
-↓
-
-Risk Detection
-
-↓
-
-Appointment Service
-
-↓
-
-Notification Service
-
-↓
-
-Supabase Database
-
-↓
-
-Psychologist Dashboard
-
-↓
-
-Analytics Engine
+┌─────────────────────────────────┐
+│   React Native Mobile App       │
+│   (Student / Psychologist /     │
+│    Admin — same app, 3 roles)   │
+└──────────────┬──────────────────┘
+               │ HTTPS / WebSocket
+┌──────────────▼──────────────────┐
+│      FastAPI Backend            │
+│   ┌──────────────────────────┐  │
+│   │  Authentication Service  │  │
+│   │  AI Engine & Risk Det.   │  │
+│   │  Appointment Service     │  │
+│   │  Notification Service    │  │
+│   │  Analytics Service       │  │
+│   └──────────────────────────┘  │
+└──────────────┬──────────────────┘
+               │
+┌──────────────▼──────────────────┐
+│     PostgreSQL Database         │
+│  (Hosted on VIT Server)         │
+└─────────────────────────────────┘
+               │
+┌──────────────▼──────────────────┐
+│   External Services             │
+│   - OpenAI API (AI Chat)        │
+│   - Firebase FCM (Push Notif.)  │
+│   - VIT Email SMTP (OTP)        │
+└─────────────────────────────────┘
 ```
 
 ---
 
 # 13. Database Design
 
-Main Tables
+## Main Tables
 
-Users
-
-AnonymousProfiles
-
-MoodLogs
-
-JournalEntries
-
-ChatSessions
-
-Messages
-
-Appointments
-
-Psychologists
-
-RiskAssessments
-
-EmergencyCases
-
-Notifications
-
-Resources
-
-AuditLogs
+| Table | Key Columns |
+|---|---|
+| Users | id, encrypted_email, encrypted_name, role, created_at |
+| AnonymousProfiles | id, user_id, alias, department, year |
+| MoodLogs | id, anonymous_id, mood_value, note, timestamp |
+| JournalEntries | id, anonymous_id, encrypted_content, tags, timestamp |
+| ChatSessions | id, anonymous_id, session_start, session_end |
+| Messages | id, session_id, sender_role, encrypted_content, timestamp |
+| Appointments | id, anonymous_id, psychologist_id, scheduled_at, status |
+| Psychologists | id, name, specialization, email, is_active |
+| RiskAssessments | id, anonymous_id, score, level, computed_at |
+| EmergencyCases | id, anonymous_id, triggered_by, resolved_at, outcome |
+| Notifications | id, recipient_id, type, message, read_at |
+| CommunityPosts | id, anonymous_id, content, moderation_status |
+| AuditLogs | id, action_type, actor_id, target_id, timestamp, details |
 
 ---
 
 # 14. AI Architecture
 
-Input
-
-↓
-
-Text Cleaning
-
-↓
-
-Language Detection
-
-↓
-
-Sentiment Analysis
-
-↓
-
-Emotion Classification
-
-↓
-
-Risk Prediction
-
-↓
-
-Intent Detection
-
-↓
-
-Recommendation Engine
-
-↓
-
-Response Generation
-
-↓
-
-Memory Update
-
-↓
-
-Safety Verification
-
-↓
-
-Student Response
+```
+Student Input (Text / Voice)
+          ↓
+    Text Pre-processing
+    (cleaning, language detection)
+          ↓
+   Sentiment Analysis
+   (positive / negative / neutral)
+          ↓
+   Emotion Classification
+   (sad / anxious / angry / hopeless / etc.)
+          ↓
+   Risk Prediction (0–100 score)
+          ↓
+   Intent Detection
+   (help-seeking / venting / crisis signal)
+          ↓
+   Recommendation Engine
+   (coping strategy / meditation / escalation)
+          ↓
+   Response Generation (GPT-4)
+          ↓
+   Memory Update (session context)
+          ↓
+   Safety Verification (crisis keyword check)
+          ↓
+   Final Response → Student's Mobile Screen
+```
 
 ---
 
 # 15. Anonymous Identity Architecture
 
-Student Identity
-
-↓
-
-AES Encryption
-
-↓
-
-Unique Anonymous ID
-
-↓
-
-Psychologist sees only:
-
-Anonymous Name
-
-Department
-
-Year
-
-Risk Score
-
-No personal identity
-
-Emergency Identity Unlock
-
-↓
-
-Multi-Level Authorization
-
-↓
-
-Identity revealed only after psychologist confirmation and emergency approval
+```
+Student registers with VIT Email
+              ↓
+     Email encrypted (AES-256)
+     Stored separately in DB
+              ↓
+   Unique Anonymous Alias Generated
+   e.g., "Blue Sparrow #4821"
+              ↓
+   Psychologist sees ONLY:
+   - Anonymous Alias
+   - Department (e.g., CSE, ECE)
+   - Academic Year (e.g., 2nd Year)
+   - Risk Score
+   - Mood History
+   - AI Session Summary
+   (NO name, roll number, phone, email)
+              ↓
+   Emergency Identity Reveal:
+   - Triggered by: High/Critical Risk
+   - Authorized by: VIT Psychologist
+   - Multi-step confirmation required
+   - Identity revealed ONLY after psychologist
+     confirmation + admin approval
+   - Every reveal permanently logged in AuditLog
+```
 
 ---
 
 # 16. Emergency Response System
 
-Risk Score > Threshold
-
-↓
-
-Psychologist Alert
-
-↓
-
-Review Conversation
-
-↓
-
-Confirm Emergency
-
-↓
-
-Identity Unlock
-
-↓
-
-Emergency Contact
-
-↓
-
-Counseling
-
-↓
-
-Hospital
-
-↓
-
-Case Monitoring
+```
+Risk Score > 85 (Critical)
+OR Student presses SOS Button
+          ↓
+Immediate Push Notification
+→ VIT Psychologist Mobile App
+          ↓
+Psychologist Reviews
+Anonymous Conversation
+          ↓
+Psychologist Confirms Emergency
+          ↓
+Authorized Identity Unlock Process
+(multi-step confirmation)
+          ↓
+Emergency Contact Notified
+(student's registered contact)
+          ↓
+VIT Emergency Team Activated
+if required
+          ↓
+Ongoing Case Monitoring
+          ↓
+Case Closed & Outcome Logged
+```
 
 ---
 
 # 17. Technology Stack
 
-### Frontend
+### Mobile Frontend
 
-React
-
-TypeScript
-
-Tailwind CSS
-
-Vite
-
-PWA
+| Technology | Purpose |
+|---|---|
+| React 19 / TypeScript / Vite | Modern high-performance responsive web and mobile architecture |
+| Capacitor 8 (Mobile PWA) | Native Android APK & iOS mobile runtime bundling |
+| Tailwind CSS / Lucide Icons | Responsive styling and design system icons |
+| Web Speech API | Native speech-to-text dictation and audio feedback |
+| React Router v6 | Client-side view and modal navigation |
 
 ### Backend
 
-FastAPI
-
-Python
-
-JWT
-
-REST API
+| Technology | Purpose |
+|---|---|
+| FastAPI (Python 3.11+) | REST API & real-time WebSocket server |
+| SQLAlchemy ORM & Uvicorn | Database abstraction & asynchronous WSGI engine |
+| JWT & PBKDF2 Hashing | Role-based authentication across 3 tiers (Student/Psychologist/Admin) |
+| Pydantic v2 | Data model validation and API schema serialization |
+| WebSockets & AlertManager | Thread-safe real-time crisis alert dispatcher |
 
 ### AI
 
-OpenAI GPT
+| Technology | Purpose |
+|---|---|
+| OpenAI GPT-4 | Conversational AI & response generation |
+| Sentence Transformers | Semantic similarity & context matching |
+| Hugging Face Models | Emotion classification |
+| spaCy | NLP text processing |
+| Scikit-learn / Risk Engine | Dynamic burnout & suicide risk prediction |
 
-Sentence Transformers
+### Database & Storage
 
-Hugging Face
-
-Scikit-learn
-
-spaCy
-
-### Database
-
-Supabase PostgreSQL
-
-Row Level Security
-
-Realtime
-
-Storage
-
-### Deployment
-
-Frontend
-
-Vercel
-
-Backend
-
-Render
-
-Database
-
-Supabase
+| Technology | Purpose |
+|---|---|
+| PostgreSQL | Primary production institutional relational database |
+| SQLite & StaticPool | Local standalone server and zero-pollution in-memory test engine |
+| Supabase Blob Storage | Initial version cloud document uploads with seamless local volume fallback (`/uploads/`) |
 
 ### Notifications
 
-Firebase Cloud Messaging
+| Technology | Purpose |
+|---|---|
+| Firebase Cloud Messaging | Mobile push notifications for critical SOS triage |
+| VIT SMTP & Demo Simulator | Email OTP dispatch during multi-role registration & password reset |
 
-Email
+### Deployment (VIT Server)
 
-SMS (future)
+| Technology | Purpose |
+|---|---|
+| Docker & Docker Compose | Containerized single-server deployment |
+| NGINX | Reverse proxy with 50MB payload limits & 3600s WebSocket timeouts |
+| VIT Institutional Server | Dedicated on-premise or campus cloud hosting |
 
 ---
 
 # 18. Security Architecture
 
-AES-256 Encryption
-
-JWT Authentication
-
-HTTPS
-
-Rate Limiting
-
-Role-Based Access Control
-
-Multi-Factor Authentication (Admin)
-
-Audit Logs
-
-Row-Level Security
-
-End-to-End Encryption for Sensitive Data
-
-Anonymous Identity Vault
+- **AES-256 Encryption** — All PII at rest (name, email, phone, roll number) vaulted via `Fernet` specification
+- **JWT RBAC Authentication** — Stateless token verification strictly isolating Student, Psychologist, and Admin levels
+- **HTTPS (TLS 1.3)** — All data in transit encrypted across API boundaries
+- **Rate Limiting (SlowAPI)** — Prevent brute force attempts on login and chat routes
+- **Role-Based Access Control (RBAC)** — Three-tier institutional governance with zero multi-tenant complexity
+- **Unified OTP Credential Recovery** — Secure one-time password verification for multi-role password resets (`/api/auth/reset-password`)
+- **Immutable Database Audit Logs** — Every sensitive crisis intervention and identity reveal is permanently recorded in the database `AuditLog` table for accountability (SRS Section 16 compliance)
+- **Row-Level Privacy Isolation** — Students can only access their own encrypted data and counseling records
+- **End-to-End Counseling Integrity** — Protected communications between student and assigned campus counselor
+- **Anonymous Identity Vault** — Student legal PII decoupled from generated animal aliases (e.g., *Orchid #404*) during standard platform operation
 
 ---
 
 # 19. Testing Strategy
 
-Unit Testing
-
-Integration Testing
-
-System Testing
-
-Performance Testing
-
-Security Testing
-
-Penetration Testing
-
-Load Testing
-
-Usability Testing
-
-AI Accuracy Testing
-
-Emergency Workflow Testing
+| Test Type | Description |
+|---|---|
+| Unit Testing | Individual function and service testing (pytest) |
+| Integration Testing | API endpoint and database integration tests |
+| System Testing | End-to-end mobile app user flow testing |
+| Performance Testing | Load testing for VIT student population scale |
+| Security Testing | Vulnerability scanning and penetration testing |
+| AI Accuracy Testing | Risk score validation against labeled test cases |
+| Emergency Workflow Testing | Full crisis escalation workflow simulation |
+| Usability Testing | Student and psychologist UX review on mobile devices |
 
 ---
 
 # 20. Deployment Strategy
 
-Development Environment
-
-↓
-
-Testing Server
-
-↓
-
-Pilot Deployment
-
-↓
-
-One Department
-
-↓
-
-Entire College
-
-↓
-
-Multi-College Expansion
-
-↓
-
-National Rollout
+```
+Development Environment (local)
+          ↓
+Testing Server (Docker Compose, internal VIT network)
+          ↓
+Pilot Deployment — One VIT Department (e.g., CSE)
+          ↓
+Evaluation & Feedback Collection
+          ↓
+VIT-Wide Rollout — All Departments
+          ↓
+Ongoing Maintenance & AI Model Updates
+```
 
 ---
 
 # 21. Future Enhancements
 
-Voice counseling
-
-Video counseling
-
-AI voice assistant
-
-Wearable integration
-
-Smartwatch stress detection
-
-AI burnout prediction
-
-Multi-language support
-
-Family counseling
-
-Peer support groups
-
-Gamified wellness
-
-AI wellness coach
-
-Predictive mental health analytics
-
-National student wellness network
+- Voice counseling (real-time spoken AI therapy)
+- In-app video counseling sessions
+- AI voice assistant (hands-free mode)
+- Smartwatch integration (heart rate, sleep data)
+- AI burnout prediction from academic schedule
+- Telugu / regional language support
+- Peer support groups (moderated by VIT psychologists)
+- Gamified wellness challenges
+- AI 7-day personalized recovery plan generator
+- Offline AI support (on-device model)
+- Predictive mental wellness analytics
+- VIT faculty wellbeing module
 
 ---
 
 # 22. Conclusion
 
-MindBridge AI aims to transform student mental healthcare by combining artificial intelligence, complete anonymity, and professional psychological support into a single secure platform. The system provides continuous AI assistance, early detection of mental health risks, and structured emergency intervention while preserving student privacy. By enabling timely support and data-driven wellness initiatives, MindBridge AI has the potential to improve student well-being, increase counseling accessibility, and reduce the impact of untreated mental health challenges across educational institutions.
+MindBridge AI aims to transform student mental healthcare at **Vishnu Institute of Technology** by combining artificial intelligence, complete anonymity, and professional psychological support into a single secure **mobile application**. The system provides continuous AI assistance, early detection of mental health risks, and a structured emergency intervention workflow while preserving student privacy absolutely. By enabling timely support and data-driven anonymous wellness insights for VIT administration, MindBridge AI has the potential to improve student well-being, increase counseling accessibility, and reduce the impact of untreated mental health challenges across the VIT campus.
 
 ---
 
 ## Project Summary
 
-| Item                   | Details                                                                             |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| **Project Name**       | MindBridge AI                                                                       |
-| **Project Type**       | AI-Powered Mental Health Platform                                                   |
-| **Domain**             | Healthcare / EdTech / AI                                                            |
-| **Target Users**       | Students, Psychologists, Educational Institutions                                   |
-| **Frontend**           | React + TypeScript + Tailwind CSS                                                   |
-| **Backend**            | FastAPI (Python)                                                                    |
-| **Database**           | Supabase PostgreSQL                                                                 |
-| **AI Stack**           | OpenAI GPT, Hugging Face, spaCy, Sentence Transformers                              |
-| **Deployment**         | Vercel + Render + Supabase                                                          |
+| Item | Details |
+|---|---|
+| **Project Name** | MindBridge AI |
+| **Project Type** | AI-Powered Institutional Mental Health Mobile Application |
+| **Institution** | Vishnu Institute of Technology (VIT) |
+| **Domain** | Healthcare / EdTech / AI |
+| **Target Users** | VIT Students · VIT Psychologists · VIT Admin |
+| **User Levels** | 3 (Student, Psychologist, Admin) |
+| **Platform** | Mobile App — Android & iOS |
+| **Frontend** | React Native (Expo) |
+| **Backend** | FastAPI (Python 3.11+) |
+| **Database** | PostgreSQL (VIT server) |
+| **AI Stack** | OpenAI GPT-4, Hugging Face, spaCy, Sentence Transformers |
+| **Deployment** | Docker + NGINX on VIT Institutional Server |
 | **Primary Innovation** | Anonymous AI-assisted mental health support with verified emergency identity reveal |
-| **Scalability**        | Single college → Multi-campus → National education ecosystem                        |
+| **Scale** | VIT campus-wide (pilot: 1 dept → full VIT rollout) |
 
-This PDR is comprehensive enough for a **final-year project**, **hackathon submission**, **startup incubation**, and **investor discussions**, and aligns with the SRS and overall system architecture we've developed for MindBridge AI.
+This PDR is comprehensive and suitable as a **final-year B.Tech project report** for Vishnu Institute of Technology.

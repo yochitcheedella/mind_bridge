@@ -1,26 +1,30 @@
 # Product Requirements Document (PRD)
 **Project:** MindBridge AI
 **Version:** 1.0.0
+**Institution:** Vishnu Institute of Technology (VIT)
 
 ## 1. Executive Summary
-MindBridge provides educational institutions with a 24/7 AI-powered mental health safety net. It bridges the gap between students suffering in silence and overworked university counseling centers by providing immediate AI triage, anonymous community support, and seamless escalation to human psychologists.
+MindBridge AI is an AI-powered mobile application built exclusively for **Vishnu Institute of Technology (VIT)** to provide students with a 24/7 anonymous mental health support system. It bridges the gap between students suffering in silence and the college's counseling center by providing immediate AI triage, anonymous peer support, and seamless escalation to VIT's psychologists — all through a dedicated mobile app.
 
 ## 2. Target Audience
-1. **Students:** Need safe, anonymous, instant mental health support and habit tracking.
-2. **Psychologists:** Need automated triage, risk insights, and prioritized patient queues.
-3. **University Admins:** Need high-level, anonymized dashboard analytics on campus wellbeing.
-4. **Platform Owners (SaaS):** Need to manage university subscriptions and multi-tenant billing.
+1. **Students (VIT):** Need safe, anonymous, instant mental health support and habit tracking via their mobile phone.
+2. **Psychologists (VIT):** Need automated triage, risk insights, and a prioritized patient queue accessible on mobile.
+3. **Admin (VIT):** Need high-level, anonymized dashboard analytics on campus wellbeing to guide institutional decisions.
 
 ## 3. Core Features
-- **AI Voice Therapist:** Real-time conversational AI utilizing browser Speech-to-Text.
-- **Crisis Detection Engine:** Analyzes mood logs, journals, and chats to output a 0.0 - 1.0 Risk Score.
-- **Encrypted Identity Vault:** Students are fully anonymous (e.g., "Blue Sparrow") until an emergency SOS is triggered.
-- **Anonymous Community:** A Reddit-style peer support forum.
-- **Telehealth Appointments:** QR check-in and video-consultation placeholders.
-- **Gamified Wellness:** Habit trackers, sleep logs, and customized 3-day recovery plans.
+- **AI Chat Companion:** Real-time conversational AI using mobile Speech-to-Text for voice input and natural language emotion detection.
+- **Crisis Detection Engine:** Synthesizes mood check-ins, journal reflections, sleep patterns, and chat sentiment to compute a dynamic 0–100 Risk Score.
+- **Encrypted Identity Vault:** Students remain completely anonymous (e.g., "Orchid #404" or "Blue Sparrow #4821") during counseling and peer discussions.
+- **Controlled Emergency De-anonymization:** Identity revelation is restricted to high-risk crisis alerts ($\ge 0.8$ score or SOS broadcast), with every decryption immutably recorded in the database `AuditLog` table for strict institutional accountability (SRS Section 16).
+- **Anonymous Community Forum:** A safe peer support space where students publish posts, reply, and upvote anonymously.
+- **Clinical Appointment Booking:** Seamless in-app scheduling of counseling sessions with assigned VIT counseling staff.
+- **AI Habit & Recovery Plans:** Personalized daily wellness action items, breathing exercises, and sleep tracking that automatically transition plans from `'active'` to `'completed'`.
+- **Unified 3-Tier Credential Recovery:** Secure OTP-verified password reset capability (`/api/auth/reset-password`) accessible across Student, Psychologist, and Admin tiers on mobile devices.
+- **Resilient Multi-Role Storage Engine:** Document and avatar file upload architecture with primary cloud blob support and seamless automatic fallback to local high-speed server storage (`/uploads`).
 
 ## 4. Non-Functional Requirements
-- **Performance:** API responses < 200ms.
-- **Security:** GDPR and HIPAA compliant data handling (encryption at rest, zero-PII dashboards).
-- **Availability:** 99.9% uptime deployed on Kubernetes.
-- **Platform:** PWA installable on iOS, Android, and Desktop.
+- **Performance:** API responses < 2 seconds; AI responses < 3 seconds on mobile networks.
+- **Security & Accountability:** FERPA/HIPAA-aligned data handling — AES-256 identity encryption at rest, immutable database audit logging for anonymity breaks, zero-PII admin dashboards, and JWT RBAC authentication.
+- **Availability:** 99.9% uptime on VIT's institutional server infrastructure with thread-safe WebSocket event loop bridging (`AlertManager`).
+- **Platform:** **Mobile Application** — Android (5.0+) and iOS (13+). No desktop or browser-only support required.
+- **Privacy:** Student real identities are never exposed to psychologists or administrators during standard operations; identity de-anonymization is permitted strictly during documented emergency interventions.

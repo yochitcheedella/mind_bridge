@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .base import Base
@@ -8,7 +8,7 @@ class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
-    university_id = Column(Integer, ForeignKey("universities.id"), nullable=True) # nullable for dev mock
+    university_id = Column(Integer, nullable=True, default=1)  # Default 1 (VIT standalone server)
     email_hash = Column(String, unique=True, index=True)        # stored as lowercase — never displayed
     password_hash = Column(String)
 
@@ -25,3 +25,9 @@ class Student(Base):
     daily_wellness_score = Column(Integer, default=100)
     fcm_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def alias(self) -> str:
+        """Alias property returning the student's anonymous token for consistent display access."""
+        return str(self.anonymous_token or "")
+

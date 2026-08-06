@@ -32,4 +32,12 @@ class AlertManager:
                 if isinstance(result, Exception):
                     self.disconnect(conn)
 
+    def dispatch_alert(self, alert_data: dict):
+        """Safely dispatches an alert broadcast whether running in an async event loop or a worker thread."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.broadcast_alert(alert_data))
+        except RuntimeError:
+            asyncio.run(self.broadcast_alert(alert_data))
+
 alert_manager = AlertManager()

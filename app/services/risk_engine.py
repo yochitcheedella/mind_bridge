@@ -63,10 +63,9 @@ def calculate_multi_factor_risk(db: Session, student_id: int):
     
     journal_risk = 0.0
     if recent_journals:
-        j_sum = sum(j.sentiment_score for j in recent_journals if j.sentiment_score)
-        # Assuming -1 is sad (High Risk = 1.0), +1 is happy (Low Risk = 0.0)
-        # Normalize to 0-1 risk: risk = (-sentiment + 1) / 2
-        journal_risk = sum((-j.sentiment_score + 1) / 2.0 for j in recent_journals if j.sentiment_score is not None) / len(recent_journals) if any(j.sentiment_score is not None for j in recent_journals) else 0.0
+        scores = [getattr(j, 'sentiment_score', 0.0) for j in recent_journals if getattr(j, 'sentiment_score', None) is not None]
+        if scores:
+            journal_risk = sum((-s + 1) / 2.0 for s in scores) / len(scores)
         
     # 4. Baseline
     # We can use the existing student.risk_score as a rolling baseline

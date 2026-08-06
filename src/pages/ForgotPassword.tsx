@@ -52,12 +52,12 @@ export default function ForgotPassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-muted mb-1">University Email</label>
+            <label className="block text-sm font-medium text-text-muted mb-1">VIT Email Address</label>
             <input
               type="email"
               required
               className="w-full bg-background border border-border rounded-xl px-4 py-3 text-text focus:outline-none focus:border-primary transition-colors"
-              placeholder="student@university.edu"
+              placeholder="student@vishnu.edu.in"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />

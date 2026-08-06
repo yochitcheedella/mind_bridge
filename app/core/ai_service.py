@@ -1,16 +1,15 @@
 import os
 import json
-import random
+import asyncio
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
-import asyncio
 
-# Attempt to import openai, but degrade gracefully if API key isn't provided
 try:
-    import openai
-    OPENAI_AVAILABLE = True
+    from google import genai
+    from google.genai import types
+    GEMINI_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
+    GEMINI_AVAILABLE = False
 
 @dataclass
 class AIAnalysis:
@@ -30,11 +29,8 @@ def _mock_llm_analysis(history: List[Dict[str, str]], user_message: str) -> AIAn
     
     # Context-aware logic mock
     if any(p in text_lower for p in ["kill myself", "end my life", "want to die"]):
-        # Verification layer: if it's the first time they say this, ask a grounding question.
-        # If they confirm, escalate.
         recent_ai_msgs = [m['content'] for m in history if m['role'] == 'assistant']
         if any("safe place" in msg or "someone nearby" in msg for msg in recent_ai_msgs[-2:]):
-            # Escalate
             return AIAnalysis(
                 response_text="I am alerting our on-call campus psychologist right now. Please stay with me. Help is being arranged.",
                 emotion_analysis=["Severe Distress", "Suicidal Ideation"],
@@ -46,7 +42,7 @@ def _mock_llm_analysis(history: List[Dict[str, str]], user_message: str) -> AIAn
             return AIAnalysis(
                 response_text="I'm deeply concerned about what you just shared. Are you in a safe place right now? Please tell me.",
                 emotion_analysis=["Despair", "Hopelessness"],
-                risk_classification="red", # Elevated, but verifying before critical alert
+                risk_classification="red", 
                 requires_alert=False,
                 risk_score=0.75
             )
@@ -120,16 +116,16 @@ def _mock_llm_analysis(history: List[Dict[str, str]], user_message: str) -> AIAn
 
 async def analyze_message_with_history(user_message: str, history: List[Dict[str, str]] = None, student_language: str = "en-IN") -> AIAnalysis:
     """
-    Analyzes a student message using an LLM, taking conversational memory into account.
+    Analyzes a student message using Google Gemini, taking conversational memory into account.
     Returns structured AIAnalysis data.
     """
     if history is None:
         history = []
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    if OPENAI_AVAILABLE and api_key:
-        client = openai.AsyncOpenAI(api_key=api_key)
+    if GEMINI_AVAILABLE and api_key:
+        client = genai.Client(api_key=api_key)
         
         system_prompt = f"""
         You are the MindBridge AI Guide, a deeply empathetic, non-judgmental mental health companion for college students.
@@ -141,34 +137,50 @@ async def analyze_message_with_history(user_message: str, history: List[Dict[str
         1. If the user indicates immediate self-harm, suicide, or violence, classify risk as "critical" and set requires_alert to true.
         2. If the user mentions self-harm but it's ambiguous, ask a verification question before escalating to critical.
         3. Respond naturally and empathetically.
-        
-        Output valid JSON exactly matching this schema:
-        {{
-            "response": "string",
-            "emotion_analysis": ["string", "string"],
-            "risk_classification": "green|yellow|orange|red|critical",
-            "requires_alert": boolean
-        }}
         """
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "user", "parts": [{"text": f"SYSTEM PROMPT: {system_prompt}"}]}]
+        messages.append({"role": "model", "parts": [{"text": "Understood. I will act as the MindBridge AI Guide."}]})
         
-        # Append last 6 turns of history for memory context
+        # Append history
         for msg in history[-6:]:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+            role = "model" if msg["role"] == "assistant" else "user"
+            messages.append({"role": role, "parts": [{"text": msg["content"]}]})
             
-        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": "user", "parts": [{"text": user_message}]})
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=250
-            )
+            # Run in a threadpool to not block async loop if SDK is sync
+            def _call_gemini():
+                return client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=messages,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema={
+                            "type": "OBJECT",
+                            "properties": {
+                                "response": {"type": "STRING"},
+                                "emotion_analysis": {
+                                    "type": "ARRAY",
+                                    "items": {"type": "STRING"}
+                                },
+                                "risk_classification": {
+                                    "type": "STRING",
+                                    "enum": ["green", "yellow", "orange", "red", "critical"]
+                                },
+                                "requires_alert": {"type": "BOOLEAN"}
+                            },
+                            "required": ["response", "emotion_analysis", "risk_classification", "requires_alert"]
+                        },
+                        temperature=0.7,
+                    ),
+                )
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, _call_gemini)
             
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
             
             # Map LLM output to dataclass
             risk_map = {"green": 0.1, "yellow": 0.3, "orange": 0.5, "red": 0.75, "critical": 0.95}
@@ -184,6 +196,7 @@ async def analyze_message_with_history(user_message: str, history: List[Dict[str
             )
         except Exception as e:
             # Fallback to mock on API error
+            print(f"Gemini API Error: {e}")
             return _mock_llm_analysis(history, user_message)
 
     else:
@@ -196,42 +209,52 @@ async def generate_recovery_plan(student_context: str) -> dict:
     Generates a structured recovery plan based on the student's recent context.
     Expects a JSON object with title, rationale, and a list of tasks.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     
-    if OPENAI_AVAILABLE and api_key:
-        client = openai.AsyncOpenAI(api_key=api_key)
+    if GEMINI_AVAILABLE and api_key:
+        client = genai.Client(api_key=api_key)
         system_prompt = """
         You are an expert AI clinical psychologist creating a recovery action plan for a student.
         Based on the provided context (recent moods, chats, journals), create a structured 3-day recovery plan.
-        
-        Output valid JSON exactly matching this schema:
-        {
-            "title": "A short encouraging title (e.g., '3-Day Re-centering Plan')",
-            "rationale": "A compassionate 2-sentence explanation of why this plan was created based on their context.",
-            "tasks": [
-                {
-                    "title": "Actionable task name",
-                    "description": "Short description of how to do it",
-                    "day_number": 1
-                }
-            ]
-        }
         Generate exactly 3 tasks, one for each day. Make them highly actionable and therapeutic (e.g., breathing, journaling, a walk).
         """
         
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Student Context:\n{student_context}"}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=400
-            )
-            return json.loads(response.choices[0].message.content)
-        except Exception:
+            def _call_gemini_plan():
+                return client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[f"SYSTEM PROMPT: {system_prompt}", f"Student Context:\n{student_context}"],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema={
+                            "type": "OBJECT",
+                            "properties": {
+                                "title": {"type": "STRING"},
+                                "rationale": {"type": "STRING"},
+                                "tasks": {
+                                    "type": "ARRAY",
+                                    "items": {
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "title": {"type": "STRING"},
+                                            "description": {"type": "STRING"},
+                                            "day_number": {"type": "INTEGER"}
+                                        },
+                                        "required": ["title", "description", "day_number"]
+                                    }
+                                }
+                            },
+                            "required": ["title", "rationale", "tasks"]
+                        },
+                        temperature=0.7,
+                    )
+                )
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, _call_gemini_plan)
+            return json.loads(response.text)
+        except Exception as e:
+            print(f"Gemini Plan Error: {e}")
             pass # Fall through to mock
 
     # Fallback mock response

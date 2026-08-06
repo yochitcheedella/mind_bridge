@@ -1,13 +1,16 @@
+"""
+MindBridge AI — Security utilities.
+VIT-only platform. Uses bcrypt directly (passlib had version compat issues).
+"""
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 import random
-
 import os
 from cryptography.fernet import Fernet
 
-# TODO: In production, load SECRET_KEY from environment variable
+
 SECRET_KEY = os.getenv("SECRET_KEY", "mindbridge-secret-key-change-in-production-use-env-var")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
@@ -16,9 +19,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", Fernet.generate_key().decode("utf-8"))
 fernet = Fernet(ENCRYPTION_KEY.encode("utf-8"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=13)
 
-# Anonymous alias components — avoids any personally identifiable descriptors
+# Anonymous alias word lists — avoids any personally identifiable descriptors
 ADJECTIVES = [
     "Blue", "Silver", "Golden", "Purple", "Crimson", "Emerald",
     "Azure", "Jade", "Amber", "Coral", "Violet", "Indigo",
@@ -32,7 +34,7 @@ NOUNS = [
 
 
 def generate_anonymous_alias() -> str:
-    """Generates a unique, anonymous display name such as 'Blue Sparrow #4821'."""
+    """Generates a unique anonymous display name like 'Blue Sparrow #4821'."""
     adj = random.choice(ADJECTIVES)
     noun = random.choice(NOUNS)
     num = random.randint(1000, 9999)
@@ -40,11 +42,23 @@ def generate_anonymous_alias() -> str:
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    """Verify a plaintext password against a bcrypt hash.
+    
+    Also handles legacy passlib hashes that may have been stored in a slightly
+    different format — falls back gracefully if verification fails.
+    """
+    if not plain or not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -62,14 +76,17 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def encrypt_data(plain_text: str) -> str:
-    """Encrypts plain text string using symmetric AES-128 (Fernet)."""
+    """Encrypts plain text using AES-128 (Fernet)."""
     if not plain_text:
         return ""
     return fernet.encrypt(plain_text.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_data(encrypted_text: str) -> str:
-    """Decrypts ciphertext string using symmetric AES-128 (Fernet)."""
+    """Decrypts Fernet-encrypted ciphertext."""
     if not encrypted_text:
         return ""
-    return fernet.decrypt(encrypted_text.encode("utf-8")).decode("utf-8")
+    try:
+        return fernet.decrypt(encrypted_text.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return "[decryption error]"

@@ -1,20 +1,32 @@
 /**
- * MindBridge Auth Utilities
- * Manages the lightweight JWT auth state stored in localStorage.
- * The real student identity is never stored here — only the anonymous alias and token.
+ * MindBridge AI — Auth Utilities (VIT-only, 3 roles)
+ * Manages JWT auth state in localStorage.
+ * Real student identity is NEVER stored here — only alias, token, and role.
  */
+
+export type UserRole = 'student' | 'psychologist' | 'admin';
 
 export interface AuthState {
   access_token: string;
-  anonymous_alias: string;
-  student_id: number;
+  role: UserRole;
+  // Student fields
+  anonymous_alias?: string;
+  student_id?: number;
+  // Psychologist fields
+  psychologist_id?: number;
+  name?: string;
+  specialization?: string;
+  // Admin fields
+  admin_id?: number;
+  // Shared
+  institution?: string;
   primary_color?: string;
 }
 
 const AUTH_KEY = 'mindbridge_auth';
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 
 export function getAuth(): AuthState | null {
   try {
@@ -45,6 +57,22 @@ export function isLoggedIn(): boolean {
   return getAuth() !== null;
 }
 
+export function getRole(): UserRole | null {
+  return getAuth()?.role ?? null;
+}
+
+export function isStudent(): boolean {
+  return getRole() === 'student';
+}
+
+export function isPsychologist(): boolean {
+  return getRole() === 'psychologist';
+}
+
+export function isAdmin(): boolean {
+  return getRole() === 'admin';
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const auth = getAuth();
   if (!auth) return { 'Content-Type': 'application/json' };
@@ -62,6 +90,13 @@ export function getStudentId(): number | null {
   return getAuth()?.student_id ?? null;
 }
 
+export function getUserName(): string {
+  const auth = getAuth();
+  if (!auth) return 'User';
+  if (auth.role === 'student') return auth.anonymous_alias ?? 'Student';
+  return auth.name ?? 'User';
+}
+
 /** Convenience wrapper for authenticated fetch calls */
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -72,4 +107,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     },
   });
   return res;
+}
+
+/** Role-based redirect helper — returns the correct home route for a given role */
+export function getHomeRoute(role: UserRole): string {
+  switch (role) {
+    case 'psychologist': return '/psychologist/dashboard';
+    case 'admin':        return '/admin/dashboard';
+    default:             return '/student/home';
+  }
 }

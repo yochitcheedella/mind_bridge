@@ -51,7 +51,7 @@ export default function EmergencyResponse() {
       <div className="w-full max-w-md animate-fade-in relative">
         <div className="absolute top-0 left-0 w-full h-full bg-error/5 blur-3xl -z-10 rounded-full animate-pulse-slow" />
         
-        <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text mb-6 transition-colors">
+        <Link to="/student/home" className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to Dashboard
         </Link>
 

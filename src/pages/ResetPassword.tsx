@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, ArrowRight, Eye, EyeOff, ArrowLeft, Info } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { apiFetch, applyPrimaryColor, API_URL } from '../utils/auth';
+import { API_URL } from '../utils/auth';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -50,7 +50,15 @@ export default function ResetPassword() {
         </div>
         
         <h2 className="text-2xl font-heading font-bold text-center mb-2">Reset Password</h2>
-        <p className="text-text-muted text-center text-sm mb-6">Enter the OTP sent to your email.</p>
+        <p className="text-text-muted text-center text-sm mb-4">Enter the OTP sent to your institutional email address.</p>
+
+        {/* Institutional Multi-Role OTP Hint for Evaluators */}
+        <div className="mb-6 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-2.5 text-xs text-text-muted">
+          <Info size={16} className="text-primary shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold text-text">Demo Mode OTP:</span> Use <code className="bg-primary/10 px-1 py-0.5 rounded text-primary font-bold">123456</code> to test instant credential reset across <span className="font-medium text-primary">Student, Counselor, & Admin</span> accounts.
+          </div>
+        </div>
         
         {message && (
           <div className={`mb-4 p-3 text-sm rounded-lg text-center font-medium ${isSuccess ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
@@ -60,11 +68,12 @@ export default function ResetPassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-muted mb-1">University Email</label>
+            <label className="block text-sm font-medium text-text-muted mb-1">VIT Email Address</label>
             <input
               type="email"
               required
               className="w-full bg-background border border-border rounded-xl px-4 py-3 text-text focus:outline-none focus:border-primary transition-colors"
+              placeholder="user@vishnu.edu.in"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -112,6 +121,17 @@ export default function ResetPassword() {
             {loading ? 'Verifying...' : 'Reset Password'} {!loading && <ArrowRight size={18} />}
           </button>
         </form>
+
+        {/* Back to Login Link */}
+        <div className="mt-6 pt-4 border-t border-border text-center">
+          <button
+            onClick={() => navigate('/login')}
+            type="button"
+            className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-primary transition-colors font-medium"
+          >
+            <ArrowLeft size={16} /> Back to Sign In
+          </button>
+        </div>
       </div>
     </div>
   );

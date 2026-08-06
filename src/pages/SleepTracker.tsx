@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Moon, Star, Clock, CheckCircle } from 'lucide-react';
-import { Card } from '../components/ui/Card';
+import { ArrowLeft, Moon, Clock, CheckCircle, Sparkles, Flame, Bed, Activity } from 'lucide-react';
 import { apiFetch, isLoggedIn } from '../utils/auth';
 
 interface SleepLog {
@@ -67,166 +66,200 @@ export default function SleepTracker() {
         setHistory(prev => [newLog, ...prev.filter(l => l.id !== newLog.id)]);
       }
     } catch (e) {
-      console.error("Failed to save sleep log", e);
+        console.error("Failed to save sleep log", e);
     }
   };
 
   const qualities = [
-    { id: 'poor', label: 'Poor', icon: '😫', color: 'var(--color-error)' },
-    { id: 'fair', label: 'Fair', icon: '🥱', color: 'var(--color-warning)' },
-    { id: 'good', label: 'Good', icon: '🙂', color: 'var(--color-primary)' },
-    { id: 'excellent', label: 'Excellent', icon: '🤩', color: 'var(--color-success)' },
+    { id: 'poor', label: 'Poor', icon: '😫', bg: 'bg-red-500/10 text-red-400 border-red-500/30', active: 'bg-red-500/30 border-red-400 text-white shadow-lg shadow-red-500/20', bar: '#f87171' },
+    { id: 'fair', label: 'Fair', icon: '🥱', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30', active: 'bg-amber-500/30 border-amber-400 text-white shadow-lg shadow-amber-500/20', bar: '#fbbf24' },
+    { id: 'good', label: 'Good', icon: '🙂', bg: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30', active: 'bg-indigo-500/30 border-indigo-400 text-white shadow-lg shadow-indigo-500/20', bar: '#6366f1' },
+    { id: 'excellent', label: 'Excellent', icon: '🤩', bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', active: 'bg-emerald-500/30 border-emerald-400 text-white shadow-lg shadow-emerald-500/20', bar: '#34d399' },
   ];
 
-  const s = {
-    page: { minHeight: '100vh', background: 'var(--color-background)', color: 'var(--color-text)', paddingBottom: 100 },
-    header: {
-      position: 'sticky' as const, top: 0, zIndex: 10,
-      background: 'rgba(18,18,30,0.85)', backdropFilter: 'blur(20px)',
-      borderBottom: '1px solid var(--color-border)', padding: '14px 20px',
-    },
-    headerRow: { maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 },
-    backBtn: {
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-      borderRadius: 10, width: 36, height: 36, cursor: 'pointer',
-      color: 'var(--color-text-muted)', flexShrink: 0,
-    },
-    main: { maxWidth: 480, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column' as const, gap: 24 },
-  };
-
   return (
-    <div style={s.page}>
-      <header style={s.header}>
-        <div style={s.headerRow}>
-          <button style={s.backBtn} onClick={() => navigate(-1)} aria-label="Go back">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
+      {/* Top Header Bar inside page content */}
+      <div className="flex items-center justify-between gap-4 bg-surface-container/60 p-4 sm:p-5 rounded-2xl border border-border-structural/80 backdrop-blur-xl shadow-md">
+        <div className="flex items-center gap-3.5">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2.5 rounded-xl bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface-variant hover:text-white border border-border-structural/60 transition-colors active:scale-95 flex items-center justify-center shrink-0 shadow-sm"
+            aria-label="Go back"
+          >
             <ArrowLeft size={18} />
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-heading)', margin: 0 }}>
-              Sleep Insights
+          <div>
+            <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>Sleep & Recovery Insights</span>
+              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] uppercase font-mono font-extrabold bg-interactive-primary/20 text-secondary-fixed border border-interactive-primary/40">Biofeedback</span>
             </h1>
-            <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>
-              Track your rest to prevent burnout
+            <p className="text-xs sm:text-sm text-on-surface-variant font-medium mt-0.5">
+              Consistent restorative sleep directly stabilizes neural calm & prevents burnout.
             </p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main style={s.main}>
-        {/* Logger */}
-        <Card style={{ padding: '24px 20px', borderColor: todayLogged ? 'rgba(161,243,195,0.3)' : 'var(--color-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <div style={{ padding: 10, background: 'rgba(161,243,195,0.1)', borderRadius: '50%', color: 'var(--color-primary)' }}>
-              <Moon size={24} />
-            </div>
-            <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>How did you sleep?</h2>
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0 }}>
-                {todayLogged ? "You've logged your sleep for today." : "Log your sleep from last night."}
-              </p>
-            </div>
-          </div>
+      {/* Main interactive cards grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+        
+        {/* Logger Section (7 cols on lg) */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="glass-panel p-5 sm:p-7 rounded-3xl border border-border-structural shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>Duration</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-primary)', fontFamily: 'var(--font-heading)' }}>
-                {hours} <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>hrs</span>
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0">
+                  <Moon size={24} className="animate-pulse" />
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-heading font-extrabold text-white">How did you rest?</h2>
+                  <p className="text-xs sm:text-sm text-on-surface-variant">
+                    {todayLogged ? "Your recovery data for today is securely logged." : "Log your sleep duration and perceived quality from last night."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Duration Slider */}
+            <div className="space-y-3 pt-2 relative z-10">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-bold text-white uppercase font-mono tracking-wide flex items-center gap-2">
+                  <Bed size={16} className="text-secondary-fixed" />
+                  <span>Duration Logged</span>
+                </span>
+                <span className="text-3xl sm:text-4xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-r from-secondary-fixed to-indigo-400">
+                  {hours} <span className="text-sm font-semibold text-on-surface-variant uppercase tracking-normal">hours</span>
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="1" max="12" step="0.5" 
+                value={hours} 
+                onChange={e => setHours(parseFloat(e.target.value))}
+                disabled={todayLogged}
+                className="w-full h-3 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-secondary-fixed focus:outline-none focus:ring-2 focus:ring-secondary/50 disabled:opacity-60"
+              />
+              <div className="flex justify-between text-[11px] font-mono text-on-surface-variant px-1 font-semibold">
+                <span>&lt; 2 hrs (Deficit)</span>
+                <span>7-8 hrs (Optimal)</span>
+                <span>12+ hrs</span>
+              </div>
+            </div>
+
+            {/* Quality Picker */}
+            <div className="space-y-3.5 relative z-10">
+              <span className="text-sm font-bold text-white uppercase font-mono tracking-wide flex items-center gap-2">
+                <Activity size={16} className="text-indigo-400" />
+                <span>Perceived Quality</span>
               </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {qualities.map(q => {
+                  const selected = quality === q.id;
+                  return (
+                    <button 
+                      key={q.id}
+                      onClick={() => setQuality(q.id)}
+                      disabled={todayLogged}
+                      className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all duration-200 active:scale-95 select-none ${
+                        selected ? q.active + ' ring-2 ring-white/20 font-bold scale-[1.02]' : q.bg + ' hover:border-white/30 font-semibold'
+                      } ${todayLogged ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
+                    >
+                      <span className="text-2xl sm:text-3xl filter drop-shadow">{q.icon}</span>
+                      <span className="text-xs sm:text-sm tracking-wide">{q.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <input 
-              type="range" 
-              min="0" max="12" step="0.5" 
-              value={hours} 
-              onChange={e => setHours(parseFloat(e.target.value))}
-              disabled={todayLogged}
-              style={{ width: '100%', accentColor: 'var(--color-primary)', cursor: todayLogged ? 'default' : 'pointer' }}
-            />
+
+            {/* Submit / Status */}
+            <div className="pt-3 relative z-10">
+              {!todayLogged ? (
+                <button 
+                  onClick={handleSave}
+                  className="w-full py-4 sm:py-4.5 rounded-2xl bg-gradient-to-r from-interactive-primary to-secondary text-white font-heading font-extrabold text-base tracking-wide hover:brightness-110 shadow-xl shadow-interactive-primary/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2.5"
+                >
+                  <Sparkles size={20} />
+                  <span>Log Rest & Update Vitality</span>
+                </button>
+              ) : (
+                <div className="w-full py-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-heading font-extrabold text-sm flex items-center justify-center gap-2.5 shadow-inner">
+                  <CheckCircle size={20} className="text-emerald-400 animate-bounce" />
+                  <span>Sleep Logged Successfully Today</span>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div style={{ marginBottom: 24 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, display: 'block', marginBottom: 12 }}>Quality</span>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {qualities.map(q => {
-                const selected = quality === q.id;
-                return (
-                  <button 
-                    key={q.id}
-                    onClick={() => setQuality(q.id)}
-                    disabled={todayLogged}
-                    style={{
-                      padding: '12px', borderRadius: 12,
-                      background: selected ? 'var(--color-surface-bright)' : 'var(--color-surface)',
-                      border: `1px solid ${selected ? q.color : 'var(--color-border)'}`,
-                      color: selected ? q.color : 'var(--color-text)',
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      cursor: todayLogged ? 'default' : 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <span style={{ fontSize: 20 }}>{q.icon}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{q.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {!todayLogged && (
-            <button 
-              onClick={handleSave}
-              style={{
-                width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-                background: 'var(--color-primary)', color: 'var(--color-background)',
-                fontWeight: 800, fontSize: 15, cursor: 'pointer'
-              }}
-            >
-              Save Sleep Log
-            </button>
-          )}
-          {todayLogged && (
-            <div style={{
-                width: '100%', padding: '12px', borderRadius: 12,
-                background: 'rgba(161,243,195,0.1)', color: 'var(--color-primary)',
-                fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-            }}>
-              <CheckCircle size={18} /> Logged Successfully
-            </div>
-          )}
-        </Card>
-
-        {/* History Chart */}
-        {history.length > 0 && (
-          <section>
-             <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-               <Clock size={14} /> Recent Sleep Trends
-             </h3>
-             <Card style={{ padding: '20px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120, paddingBottom: 24, overflowX: 'auto' }}>
+        {/* Analytics Section (5 cols on lg) */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-border-structural shadow-xl space-y-5">
+            <h3 className="text-sm font-heading font-extrabold text-white uppercase tracking-wider flex items-center gap-2 border-b border-border-structural/60 pb-3.5">
+              <Clock size={16} className="text-secondary-fixed" />
+              <span>7-Day Rest & Recovery Curve</span>
+            </h3>
+            
+            {history.length > 0 ? (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-end justify-between gap-2.5 h-44 px-2 pt-4 border-b border-border-structural/50 pb-2">
                   {history.slice(0, 7).reverse().map((log, i) => {
-                    const heightPct = Math.min((log.hours / 12) * 100, 100);
+                    const heightPct = Math.min(Math.max((log.hours / 12) * 100, 15), 100);
                     const q = qualities.find(x => x.id === log.quality);
-                    const color = q ? q.color : 'var(--color-primary)';
+                    const barColor = q ? q.bar : '#6366f1';
                     
                     return (
-                      <div key={log.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 32 }}>
-                        <div style={{ 
-                          width: '100%', height: `${heightPct}%`, minHeight: 4, 
-                          background: color, borderRadius: '4px 4px 0 0', opacity: 0.8
-                        }} />
-                        <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600 }}>
+                      <div key={log.id} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                        <span className="text-[10px] font-mono font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity transform -translate-y-1">
                           {log.hours}h
+                        </span>
+                        <div 
+                          className="w-full max-w-[34px] rounded-t-xl transition-all duration-700 ease-out group-hover:brightness-125 relative overflow-hidden shadow-md"
+                          style={{ height: `${heightPct}%`, backgroundColor: barColor }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-mono font-bold text-on-surface-variant uppercase">
+                          D{i + 1}
                         </span>
                       </div>
                     );
                   })}
                 </div>
-             </Card>
-          </section>
-        )}
+                
+                <div className="flex items-center justify-between text-xs text-on-surface-variant font-medium pt-1 px-1">
+                  <span>Average Rest Duration</span>
+                  <span className="font-mono font-bold text-white text-sm">
+                    {(history.reduce((acc, l) => acc + l.hours, 0) / history.length).toFixed(1)} hrs / night
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-on-surface-variant text-sm flex flex-col items-center gap-3">
+                <Bed size={32} className="text-outline/40 animate-pulse" />
+                <span>No sleep trends recorded yet. Log your rest above to start tracking!</span>
+              </div>
+            )}
+          </div>
 
-      </main>
+          {/* Quick Tip card */}
+          <div className="p-5 rounded-3xl bg-gradient-to-r from-surface-container via-panel-high to-surface-container border border-border-structural shadow-lg flex items-start gap-4">
+            <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0 mt-0.5">
+              <Flame size={20} />
+            </div>
+            <div>
+              <h4 className="font-heading font-bold text-sm text-white">Neural Calm Safeguard</h4>
+              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Sleeping fewer than 5 hours for two consecutive nights raises academic burnout stress indices by up to 45%. Take advantage of Calm Canopy breathing exercises before bed!
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

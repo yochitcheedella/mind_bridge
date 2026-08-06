@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Circle, Plus, Flame, Trophy, Trash2, X } from 'lucide-react';
-import { Card } from '../components/ui/Card';
+import { ArrowLeft, CheckCircle2, Circle, Plus, Flame, Trophy, Trash2, X, Sparkles, Activity } from 'lucide-react';
 import { apiFetch, isLoggedIn } from '../utils/auth';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface Habit {
   id: string;
   name: string;
@@ -14,7 +12,6 @@ interface Habit {
   completions: string[]; // ISO date strings
 }
 
-// ─── Pre-set habits ──────────────────────────────────────────────────────────
 const PRESET_HABITS = [
   { id: 'sleep7', name: 'Sleep 7+ hours', emoji: '😴', category: 'Sleep' },
   { id: 'exercise', name: 'Exercise / Move', emoji: '🏃', category: 'Health' },
@@ -50,36 +47,6 @@ function calcStreak(completions: string[]): number {
   return streak;
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const s: any = {
-  page: { minHeight: '100vh', background: 'var(--color-background)', color: 'var(--color-text)', paddingBottom: 100 },
-  header: {
-    position: 'sticky', top: 0, zIndex: 10,
-    background: 'rgba(18,18,30,0.85)', backdropFilter: 'blur(20px)',
-    borderBottom: '1px solid var(--color-border)', padding: '14px 20px',
-  },
-  headerRow: { maxWidth: 480, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 },
-  backBtn: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-    borderRadius: 10, width: 36, height: 36, cursor: 'pointer',
-    color: 'var(--color-text-muted)', flexShrink: 0,
-  },
-  main: { maxWidth: 480, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 24 },
-  sectionLabel: {
-    fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
-    textTransform: 'uppercase' as const, color: 'var(--color-text-muted)',
-    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12,
-  },
-  weekDot: (done: boolean): React.CSSProperties => ({
-    width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: done ? 'var(--color-primary)' : 'var(--color-surface-bright)',
-    fontSize: 10, color: done ? 'var(--color-background)' : 'var(--color-text-muted)',
-    fontWeight: 700, transition: 'all 0.2s',
-  }),
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function HabitTracker() {
   const navigate = useNavigate();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -168,69 +135,78 @@ export default function HabitTracker() {
   const longestStreak = habits.reduce((max, h) => Math.max(max, h.streak), 0);
 
   return (
-    <div style={s.page}>
-      {/* Header */}
-      <header style={s.header}>
-        <div style={s.headerRow}>
-          <button style={s.backBtn} onClick={() => navigate(-1)} aria-label="Go back">
+    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex items-center justify-between gap-4 bg-surface-container/60 p-4 sm:p-5 rounded-2xl border border-border-structural/80 backdrop-blur-xl shadow-md">
+        <div className="flex items-center gap-3.5">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2.5 rounded-xl bg-surface-container-high/70 hover:bg-surface-container-highest text-on-surface-variant hover:text-white border border-border-structural/60 transition-colors active:scale-95 flex items-center justify-center shrink-0 shadow-sm"
+            aria-label="Go back"
+          >
             <ArrowLeft size={18} />
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-heading)', margin: 0 }}>
-              Habit Tracker
+          <div>
+            <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>Habit & Routine Studio</span>
+              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] uppercase font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Daily Wellness</span>
             </h1>
-            <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0 }}>
-              Build daily wellness routines
+            <p className="text-xs sm:text-sm text-on-surface-variant font-medium mt-0.5">
+              Consistent daily positive behavior stacking builds academic resilience.
             </p>
           </div>
-          <button
-            onClick={() => setShowAdd(s => !s)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 10,
-              background: 'var(--color-primary)', border: 'none',
-              color: 'var(--color-background)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            <Plus size={16} /> Add
-          </button>
         </div>
-      </header>
+        <button
+          onClick={() => setShowAdd(s => !s)}
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-interactive-primary to-secondary text-white font-heading font-extrabold text-xs sm:text-sm tracking-wide hover:brightness-110 shadow-lg shadow-interactive-primary/30 active:scale-[0.98] transition-all flex items-center gap-2 shrink-0"
+        >
+          <Plus size={16} /> <span>Add Habit</span>
+        </button>
+      </div>
 
-      <main style={s.main}>
-
-        {/* Stats banner */}
-        {totalHabits > 0 && (
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10,
-          }}>
-            {[
-              { label: "Today's Progress", value: `${completionPct}%`, icon: '✅' },
-              { label: 'Done Today', value: `${totalDoneToday}/${totalHabits}`, icon: '🎯' },
-              { label: 'Best Streak', value: `${longestStreak}d`, icon: '🔥' },
-            ].map(({ label, value, icon }) => (
-              <Card key={label} style={{ padding: '12px 10px', textAlign: 'center' as const }}>
-                <p style={{ fontSize: 18 }}>{icon}</p>
-                <p style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-primary)' }}>{value}</p>
-                <p style={{ fontSize: 9, color: 'var(--color-text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginTop: 2 }}>{label}</p>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Add habit panel */}
-        {showAdd && (
-          <Card style={{ padding: '18px 16px', borderColor: 'rgba(161,243,195,0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <p style={{ fontWeight: 700, fontSize: 14 }}>Add a Habit</p>
-              <button onClick={() => setShowAdd(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                <X size={18} />
-              </button>
+      {/* Stats Banner */}
+      {totalHabits > 0 && (
+        <div className="grid grid-cols-3 gap-3 sm:gap-6">
+          {[
+            { label: "Today's Progress", value: `${completionPct}%`, icon: '✅', color: 'from-emerald-400 to-teal-500' },
+            { label: 'Done Today', value: `${totalDoneToday}/${totalHabits}`, icon: '🎯', color: 'from-blue-400 to-indigo-500' },
+            { label: 'Best Streak', value: `${longestStreak}d`, icon: '🔥', color: 'from-amber-400 to-orange-500' },
+          ].map(({ label, value, icon, color }) => (
+            <div key={label} className="glass-panel p-4 sm:p-5 rounded-2xl border border-border-structural text-center space-y-1 shadow-lg">
+              <span className="text-xl sm:text-2xl inline-block">{icon}</span>
+              <div className={`text-xl sm:text-3xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-r ${color}`}>
+                {value}
+              </div>
+              <div className="text-[10px] sm:text-xs font-mono font-bold uppercase text-on-surface-variant tracking-wider truncate">
+                {label}
+              </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            {/* Presets */}
-            <p style={s.sectionLabel}>Quick Add</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 8, marginBottom: 18 }}>
+      {/* Add habit modal/panel */}
+      {showAdd && (
+        <div className="glass-panel p-5 sm:p-7 rounded-3xl border border-interactive-primary/40 shadow-2xl space-y-6 relative overflow-hidden bg-surface-container-high/90 animate-slide-up">
+          <div className="flex justify-between items-center border-b border-border-structural/60 pb-3">
+            <h3 className="font-heading font-bold text-base sm:text-lg text-white flex items-center gap-2">
+              <Sparkles className="text-secondary-fixed" size={18} />
+              <span>Add a Wellness Habit</span>
+            </h3>
+            <button 
+              onClick={() => setShowAdd(false)} 
+              className="p-1 rounded-lg text-on-surface-variant hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Presets */}
+          <div className="space-y-3">
+            <label className="text-xs font-mono font-bold uppercase tracking-wider text-on-surface-variant block">
+              Quick Presets
+            </label>
+            <div className="flex flex-wrap gap-2">
               {PRESET_HABITS.map(p => {
                 const already = habits.some(h => h.id === p.id);
                 return (
@@ -238,147 +214,157 @@ export default function HabitTracker() {
                     key={p.id}
                     onClick={() => addPreset(p)}
                     disabled={already}
-                    style={{
-                      padding: '6px 12px', borderRadius: 20, border: '1px solid',
-                      borderColor: already ? 'var(--color-border)' : 'var(--color-primary)',
-                      background: already ? 'var(--color-surface-bright)' : 'rgba(161,243,195,0.1)',
-                      color: already ? 'var(--color-text-muted)' : 'var(--color-primary)',
-                      fontSize: 12, fontWeight: 600, cursor: already ? 'default' : 'pointer',
-                      transition: 'all 0.2s',
-                    }}
+                    className={`px-3 py-2 rounded-xl border text-xs sm:text-sm font-semibold transition-all active:scale-95 flex items-center gap-2 ${
+                      already
+                        ? 'border-border-structural bg-surface-container text-on-surface-variant/60 cursor-default'
+                        : 'border-interactive-primary/50 bg-interactive-primary/15 text-secondary-fixed hover:bg-interactive-primary/25 cursor-pointer shadow-sm shadow-interactive-primary/10'
+                    }`}
                   >
-                    {p.emoji} {p.name}
+                    <span>{p.emoji}</span>
+                    <span>{p.name}</span>
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            {/* Custom habit */}
-            <p style={s.sectionLabel}>Custom Habit</p>
-            <div style={{ display: 'flex', gap: 8 }}>
+          {/* Custom habit input */}
+          <div className="space-y-3 pt-2">
+            <label className="text-xs font-mono font-bold uppercase tracking-wider text-on-surface-variant block">
+              Or Create Custom Habit
+            </label>
+            <div className="flex gap-2 sm:gap-3">
               <input
                 value={customEmoji}
                 onChange={e => setCustomEmoji(e.target.value)}
-                style={{
-                  width: 44, textAlign: 'center' as const, fontSize: 20,
-                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 10, padding: '8px 4px', color: 'var(--color-text)',
-                }}
+                className="w-14 text-center text-xl bg-surface-container-lowest border border-border-structural rounded-xl py-2 px-1 text-white focus:outline-none focus:ring-2 focus:ring-secondary-fixed shrink-0"
                 maxLength={2}
+                title="Choose an emoji"
               />
               <input
                 value={customName}
                 onChange={e => setCustomName(e.target.value)}
-                placeholder="Habit name…"
+                placeholder="Enter routine name..."
                 onKeyDown={e => e.key === 'Enter' && addCustom()}
-                style={{
-                  flex: 1, background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 10, padding: '8px 12px', color: 'var(--color-text)',
-                  fontSize: 13, outline: 'none',
-                }}
+                className="flex-1 bg-surface-container-lowest border border-border-structural rounded-xl py-2 px-3.5 text-sm text-white placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-secondary-fixed"
               />
               <button
                 onClick={addCustom}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: 'var(--color-primary)', color: 'var(--color-background)',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                }}
+                className="px-5 py-2 rounded-xl bg-interactive-primary hover:brightness-110 text-white font-heading font-bold text-sm tracking-wide shadow-md active:scale-95 transition-transform shrink-0"
               >
-                Add
+                Create
               </button>
             </div>
-          </Card>
-        )}
-
-        {/* Habit list */}
-        {habits.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-text-muted)' }}>
-            <Trophy size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-            <p style={{ fontWeight: 600, marginBottom: 6 }}>No habits yet</p>
-            <p style={{ fontSize: 12, opacity: 0.7 }}>Tap "+ Add" to build your first daily routine.</p>
           </div>
-        ) : (
-          <section>
-            <p style={s.sectionLabel}><Flame size={12} /> Today's Habits</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {habits.map(habit => {
-                const doneToday = habit.completions.includes(todayKey);
-                return (
-                  <Card key={habit.id} style={{
-                    padding: '14px 16px',
-                    borderColor: doneToday ? 'rgba(161,243,195,0.35)' : 'var(--color-border)',
-                    background: doneToday ? 'rgba(161,243,195,0.05)' : 'var(--color-surface)',
-                    transition: 'all 0.2s',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      {/* Check button */}
-                      <button
-                        onClick={() => toggleToday(habit.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
-                        aria-label={doneToday ? 'Mark incomplete' : 'Mark complete'}
-                      >
-                        {doneToday
-                          ? <CheckCircle2 size={26} color="var(--color-primary)" />
-                          : <Circle size={26} color="var(--color-text-muted)" />
-                        }
-                      </button>
+        </div>
+      )}
 
-                      {/* Emoji + name */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 20 }}>{habit.emoji}</span>
-                          <span style={{
-                            fontWeight: 600, fontSize: 14,
-                            color: doneToday ? 'var(--color-primary)' : 'var(--color-text)',
-                            textDecoration: doneToday ? 'line-through' : 'none',
-                            opacity: doneToday ? 0.8 : 1,
-                          }}>
-                            {habit.name}
-                          </span>
-                        </div>
+      {/* Habit List */}
+      {habits.length === 0 ? (
+        <div className="glass-panel py-16 px-6 rounded-3xl border border-border-structural text-center space-y-4 shadow-xl">
+          <Trophy size={48} className="mx-auto text-outline/30 animate-pulse" />
+          <h4 className="text-lg font-heading font-extrabold text-white">No Routines Configured Yet</h4>
+          <p className="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed">
+            Tap the <span className="text-secondary-fixed font-bold">"+ Add Habit"</span> button above to quickly adopt science-backed sleep, hydration, and mental calm rituals.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h3 className="text-xs sm:text-sm font-heading font-extrabold text-on-surface-variant uppercase tracking-wider flex items-center gap-2 px-1">
+            <Flame size={16} className="text-amber-400 animate-bounce" />
+            <span>Active Daily Rituals ({totalDoneToday} / {totalHabits} completed today)</span>
+          </h3>
+          
+          <div className="grid grid-cols-1 gap-3.5">
+            {habits.map(habit => {
+              const doneToday = habit.completions.includes(todayKey);
+              return (
+                <div 
+                  key={habit.id}
+                  className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 flex items-center gap-3.5 sm:gap-5 shadow-md ${
+                    doneToday 
+                      ? 'bg-emerald-500/10 border-emerald-500/40 shadow-emerald-500/10' 
+                      : 'glass-panel border-border-structural hover:border-white/30'
+                  }`}
+                >
+                  {/* Check Toggle Button */}
+                  <button
+                    onClick={() => toggleToday(habit.id)}
+                    className="shrink-0 transition-transform active:scale-90"
+                    aria-label={doneToday ? 'Mark incomplete' : 'Mark complete'}
+                  >
+                    {doneToday
+                      ? <CheckCircle2 size={32} className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                      : <Circle size={32} className="text-outline hover:text-white transition-colors" />
+                    }
+                  </button>
 
-                        {/* 7-day dots */}
-                        <div style={{ display: 'flex', gap: 4, marginTop: 8, alignItems: 'center' }}>
-                          {days7.map((day, i) => (
-                            <div key={day} title={day} style={s.weekDot(habit.completions.includes(day))}>
-                              {dayLabels[i]}
-                            </div>
-                          ))}
-                          {habit.streak > 0 && (
-                            <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--color-primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Flame size={11} /> {habit.streak}d
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => removeHabit(habit.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 4, flexShrink: 0 }}
-                        aria-label="Remove habit"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                  {/* Habit details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl sm:text-2xl filter drop-shadow">{habit.emoji}</span>
+                      <span className={`font-heading font-extrabold text-sm sm:text-base truncate ${
+                        doneToday ? 'text-emerald-300' : 'text-white'
+                      }`}>
+                        {habit.name}
+                      </span>
                     </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
-        {/* Motivation card */}
-        {totalDoneToday === totalHabits && totalHabits > 0 && (
-          <Card style={{ padding: '20px 18px', background: 'rgba(161,243,195,0.08)', borderColor: 'rgba(161,243,195,0.3)', textAlign: 'center' as const }}>
-            <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
-            <p style={{ fontWeight: 800, fontSize: 15, color: 'var(--color-primary)', marginBottom: 4 }}>All habits complete!</p>
-            <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>You've nailed every habit today. Keep it up!</p>
-          </Card>
-        )}
+                    {/* 7-day visual dots */}
+                    <div className="flex flex-wrap gap-1 sm:gap-2 mt-2.5 items-center">
+                      {days7.map((day, i) => {
+                        const isDone = habit.completions.includes(day);
+                        return (
+                          <div 
+                            key={day} 
+                            title={day} 
+                            className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-extrabold transition-colors ${
+                              isDone
+                                ? 'bg-gradient-to-tr from-emerald-500 to-teal-400 text-on-primary shadow-sm shadow-emerald-500/30'
+                                : 'bg-surface-container-highest text-on-surface-variant/70 border border-border-structural'
+                            }`}
+                          >
+                            {dayLabels[i]}
+                          </div>
+                        );
+                      })}
+                      {habit.streak > 0 && (
+                        <span className="ml-1 sm:ml-2 px-2.5 py-1 rounded-full text-xs font-mono font-black tracking-wide bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-sm">
+                          <Flame size={12} className="fill-amber-400 text-amber-400" />
+                          <span>{habit.streak}d Streak</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-      </main>
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => removeHabit(habit.id)}
+                    className="p-2 rounded-xl text-on-surface-variant hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+                    title="Remove routine"
+                    aria-label="Remove habit"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Celebration Motivation Card */}
+      {totalDoneToday === totalHabits && totalHabits > 0 && (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/80 via-teal-900/40 to-emerald-950/80 border border-emerald-400/40 text-center space-y-2 shadow-2xl animate-bounce-once">
+          <span className="text-4xl inline-block">🎉</span>
+          <h4 className="text-lg sm:text-xl font-heading font-black text-emerald-300 tracking-tight">
+            Flawless Routine Execution!
+          </h4>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
+            You have successfully checked off every single wellness routine for today! Keep compounding this positive behavioral momentum tomorrow.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

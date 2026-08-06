@@ -62,6 +62,22 @@ def get_entries(
     ]
 
 
+@router.delete("/entry/{entry_id}")
+def delete_entry(
+    entry_id: int,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id, JournalEntry.student_id == student.id).first()
+    if not entry:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Entry not found or unauthorized")
+    
+    db.delete(entry)
+    db.commit()
+    return {"status": "success", "message": "Entry deleted"}
+
+
 @router.get("/insights")
 async def get_journal_insights(
     student: Student = Depends(get_current_student),

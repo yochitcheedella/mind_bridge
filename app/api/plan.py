@@ -30,8 +30,8 @@ async def generate_plan(
         plan.status = "archived"
     db.commit()
     
-    # 2. Gather context (Mocked gathering for now)
-    student_context = f"Student {student.alias} has recently reported high academic stress and sleep deprivation. They are in year {student.year} of {student.department}."
+    # 2. Gather context
+    student_context = f"Student {student.anonymous_token} has recently reported high academic stress and sleep deprivation. They are in year {student.year} of {student.department}."
     
     # 3. Generate from AI
     generated_plan = await generate_recovery_plan(student_context)

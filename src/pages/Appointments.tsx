@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
-import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, ChevronRight, ArrowLeft, Video, QrCode } from 'lucide-react';
-import { apiFetch, API_URL } from '../utils/auth';
+import { useNavigate, Link } from 'react-router-dom';
+import { apiFetch, getAlias } from '../utils/auth';
 
 interface Slot {
   psychologist_id: number;
@@ -24,10 +20,10 @@ interface Appointment {
   check_in_code?: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  confirmed: { label: 'Confirmed', color: 'bg-success/15 text-success border-success/25', icon: <CheckCircle2 size={12} /> },
-  pending:   { label: 'Pending',   color: 'bg-warning/15 text-warning border-warning/25', icon: <AlertCircle size={12} /> },
-  cancelled: { label: 'Cancelled', color: 'bg-error/15 text-error border-error/25',       icon: <XCircle size={12} /> },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  confirmed: { label: 'Confirmed', color: 'bg-[#a1f3c3]/15 text-[#a1f3c3] border-[#a1f3c3]/25', icon: 'check_circle' },
+  pending:   { label: 'Pending',   color: 'bg-warning/15 text-warning border-warning/25', icon: 'pending' },
+  cancelled: { label: 'Cancelled', color: 'bg-error/15 text-error border-error/25',       icon: 'cancel' },
 };
 
 export default function Appointments() {
@@ -35,146 +31,169 @@ export default function Appointments() {
   const [activeTab, setActiveTab] = useState<'book' | 'mine'>('book');
   const [slots, setSlots] = useState<Slot[]>([]);
   const [myAppts, setMyAppts] = useState<Appointment[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [selectedDoc, setSelectedDoc] = useState('1'); 
+  const [reqDate, setReqDate] = useState('');
+  const [reqTime, setReqTime] = useState('');
+  const [psychologists, setPsychologists] = useState<any[]>([]);
+  const [isBooking, setIsBooking] = useState(false);
   const [loadingMine, setLoadingMine] = useState(true);
-  const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookedMsg, setBookedMsg] = useState('');
 
+  // Sync with Backend
   useEffect(() => {
-    fetch(`${API_URL}/api/appointments/slots`)
-      .then(r => r.json()).then(d => { if (Array.isArray(d)) setSlots(d); }).finally(() => setLoadingSlots(false));
-    apiFetch('/api/appointments/mine')
-      .then(r => r.json()).then(d => { if (Array.isArray(d)) setMyAppts(d); }).finally(() => setLoadingMine(false));
+    // Load psychologists
+    apiFetch('/api/appointments/psychologists')
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          setPsychologists(d);
+          if (d.length > 0) setSelectedDoc(d[0].id.toString());
+        }
+      })
+      .catch(() => {});
+
+    const loadAppointments = () => {
+      apiFetch('/api/appointments/mine')
+        .then(r => r.json())
+        .then(parsed => {
+          if (!Array.isArray(parsed)) return;
+          
+          setMyAppts(prev => {
+            parsed.forEach((newAppt: any) => {
+              const oldAppt = prev.find(p => p.id === newAppt.id);
+              if (oldAppt && oldAppt.status === 'pending' && newAppt.status === 'rescheduled') {
+                const dt = new Date(newAppt.slot_time);
+                setBookedMsg(`Update: ${newAppt.psychologist_name} rescheduled to ${dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} on ${dt.toLocaleDateString()}`);
+                setTimeout(() => setBookedMsg(''), 8000);
+              } else if (oldAppt && oldAppt.status === 'pending' && newAppt.status === 'confirmed') {
+                setBookedMsg(`Update: ${newAppt.psychologist_name} confirmed your session!`);
+                setTimeout(() => setBookedMsg(''), 6000);
+              }
+            });
+            return parsed;
+          });
+        })
+        .finally(() => setLoadingMine(false));
+    };
+
+    loadAppointments();
+    const interval = setInterval(loadAppointments, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleBook = async (slot: Slot) => {
-    const key = `${slot.psychologist_id}_${slot.slot_time}`;
-    setBookingId(key);
+  const handleRequestBooking = async () => {
+    setIsBooking(true);
     try {
+      const dt = new Date(`${reqDate}T${reqTime}`);
       const res = await apiFetch('/api/appointments/book', {
         method: 'POST',
-        body: JSON.stringify({ psychologist_id: slot.psychologist_id, slot_time: slot.slot_time }),
+        body: JSON.stringify({ psychologist_id: parseInt(selectedDoc), slot_time: dt.toISOString() })
       });
       if (res.ok) {
-        const data = await res.json();
-        const newAppt: Appointment = {
-          id: data.id,
-          psychologist_name: slot.psychologist_name,
-          specialization: slot.specialization,
-          slot_time: slot.slot_time,
-          status: data.status,
-          notes: null,
-        };
-        setMyAppts(prev => [...prev, newAppt]);
-        setBookedMsg(`Session with ${slot.psychologist_name} confirmed!`);
+        const docName = psychologists.find(p => p.id.toString() === selectedDoc)?.name || 'Counselor';
+        setBookedMsg(`Request sent! Waiting for ${docName} to review.`);
         setActiveTab('mine');
-        setTimeout(() => setBookedMsg(''), 4000);
+        setReqDate('');
+        setReqTime('');
+        setTimeout(() => setBookedMsg(''), 6000);
       }
+    } catch (e) {
+      console.error(e);
     } finally {
-      setBookingId(null);
+      setIsBooking(false);
     }
   };
 
   const handleCancel = async (id: number) => {
-    await apiFetch(`/api/appointments/cancel/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/appointments/cancel/${id}`, { method: 'DELETE' }).catch(() => null);
     setMyAppts(prev => prev.map(a => a.id === id ? { ...a, status: 'cancelled' } : a));
   };
 
-  // Group slots by psychologist
-  const slotsByDoc: Record<string, Slot[]> = {};
-  slots.forEach(s => {
-    if (!slotsByDoc[s.psychologist_name]) slotsByDoc[s.psychologist_name] = [];
-    slotsByDoc[s.psychologist_name].push(s);
-  });
-
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-10 bg-surface-dim/80 backdrop-blur-xl border-b border-border px-5 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} aria-label="Go back"
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface border border-border text-text-muted hover:text-text hover:bg-surface-bright transition-all shrink-0">
-            <ArrowLeft size={18} />
-          </button>
+    <div className="min-h-screen bg-canvas-global pb-24 text-on-surface">
+      <header className="sticky top-0 z-10 bg-surface-dim/80 backdrop-blur-xl border-b border-border-internal px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link to="/student/home" className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-bright transition-colors">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          </Link>
           <div>
-            <h1 className="font-heading font-bold text-lg flex items-center gap-2">
-              <Calendar size={18} className="text-primary" /> Counseling Sessions
+            <h1 className="font-h4 font-bold text-sm flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[18px]">event</span>
+              Counseling Sessions
             </h1>
-            <p className="text-xs text-text-muted mt-0.5">Anonymous — your counselor only sees your ID</p>
+            <p className="font-mono-data text-[10px] text-on-surface-variant mt-0.5">Anonymous ID mode</p>
           </div>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-5 py-5 animate-fade-in">
+      <div className="max-w-md mx-auto px-4 py-5 animate-fade-in">
         {bookedMsg && (
-          <div className="mb-4 flex items-center gap-2 bg-success/10 border border-success/25 rounded-xl px-4 py-3 text-sm text-success animate-slide-up">
-            <CheckCircle2 size={16} /> {bookedMsg}
+          <div className="mb-4 flex items-center gap-2 bg-primary/10 border border-primary/25 rounded-xl px-4 py-3 text-sm text-primary animate-slide-up shadow-lg">
+            <span className="material-symbols-outlined text-[18px] shrink-0">info</span>
+            <span className="leading-tight">{bookedMsg}</span>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex bg-surface-bright rounded-xl p-1 mb-6">
+        <div className="flex bg-[#070708] rounded-xl p-1 mb-6 border border-border-internal overflow-hidden">
           {(['book', 'mine'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all
-                ${activeTab === tab ? 'bg-surface-dim text-text shadow-sm' : 'text-text-muted hover:text-text'}`}>
+                ${activeTab === tab ? 'bg-panel-high text-primary shadow-[0_2px_8px_rgba(0,0,0,0.5)] border border-border-structural inner-glow-top' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface border border-transparent'}`}>
               {tab === 'book' ? 'Book a Session' : `My Sessions (${myAppts.filter(a => a.status !== 'cancelled').length})`}
             </button>
           ))}
         </div>
 
         {activeTab === 'book' ? (
-          <div className="space-y-6">
-            {loadingSlots ? (
-              <div className="text-center py-10 text-text-muted text-sm">Loading available slots...</div>
-            ) : (
-              Object.entries(slotsByDoc).map(([docName, docSlots]) => {
-                const firstSlot = docSlots[0];
-                return (
-                  <Card key={docName} className="p-5">
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
-                        <User size={18} className="text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-heading font-semibold">{docName}</h3>
-                        <p className="text-xs text-text-muted mt-0.5">{firstSlot.specialization}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {docSlots.slice(0, 4).map(slot => {
-                        const dt = new Date(slot.slot_time);
-                        const key = `${slot.psychologist_id}_${slot.slot_time}`;
-                        const isBooking = bookingId === key;
-                        return (
-                          <button key={key} onClick={() => handleBook(slot)} disabled={isBooking}
-                            className="text-left p-3 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 transition-all group relative disabled:opacity-60">
-                            <p className="text-xs font-semibold text-text">
-                              {dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
-                              <Clock size={10} />
-                              {dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <ChevronRight size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                );
-              })
-            )}
+          <div className="glass-panel p-5 rounded-xl border border-border-internal space-y-5 animate-slide-up">
+            <h2 className="font-h4 text-h4 font-bold mb-2">Request an Appointment</h2>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">psychology</span> 1. Choose Counselor
+              </label>
+              <select value={selectedDoc} onChange={e => setSelectedDoc(e.target.value)}
+                style={{ colorScheme: 'dark' }}
+                className="w-full bg-surface border border-border-internal rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-interactive-primary transition-all appearance-none cursor-pointer">
+                {psychologists.map(doc => <option key={doc.id} value={doc.id} style={{ background: '#12121E', color: '#fff' }}>{doc.name} - {doc.specialization}</option>)}
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">calendar_today</span> 2. Select Date
+              </label>
+              <input type="date" value={reqDate} onChange={e => setReqDate(e.target.value)}
+                style={{ colorScheme: 'dark' }}
+                className="w-full bg-surface border border-border-internal rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-interactive-primary transition-all cursor-pointer" />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">schedule</span> 3. Select Time
+              </label>
+              <input type="time" value={reqTime} onChange={e => setReqTime(e.target.value)}
+                style={{ colorScheme: 'dark' }}
+                className="w-full bg-surface border border-border-internal rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-interactive-primary transition-all cursor-pointer" />
+            </div>
+            
+            <button onClick={handleRequestBooking} disabled={!reqDate || !reqTime || isBooking}
+              className="w-full py-3.5 rounded-xl bg-interactive-primary text-on-primary font-bold text-sm hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-2 shadow-lg shadow-interactive-primary/20">
+              {isBooking ? 'Sending Request...' : 'Send Appointment Request'}
+            </button>
+            <p className="font-mono-data text-[10px] text-on-surface-variant text-center mt-3">The psychologist will review your request and either confirm or propose a new time.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {loadingMine ? (
-              <div className="text-center py-10 text-text-muted text-sm">Loading your sessions...</div>
+              <div className="text-center py-10 text-on-surface-variant text-sm">Loading your sessions...</div>
             ) : myAppts.length === 0 ? (
-              <div className="text-center py-12 text-text-muted">
-                <Calendar size={32} className="mx-auto mb-3 opacity-40" />
+              <div className="glass-panel text-center py-12 rounded-xl text-on-surface-variant border border-border-internal">
+                <span className="material-symbols-outlined text-[32px] mx-auto mb-3 opacity-40">event_busy</span>
                 <p className="text-sm font-medium">No sessions yet</p>
                 <p className="text-xs mt-1 opacity-60">Book your first anonymous counseling session.</p>
-                <button onClick={() => setActiveTab('book')} className="mt-4 text-primary text-sm hover:text-primary-hover font-medium transition-colors">
+                <button onClick={() => setActiveTab('book')} className="mt-4 text-interactive-primary text-sm hover:brightness-110 font-bold transition-colors">
                   Browse available slots →
                 </button>
               </div>
@@ -184,48 +203,49 @@ export default function Appointments() {
                 const statusCfg = STATUS_CONFIG[appt.status] || STATUS_CONFIG.pending;
                 const isFuture = dt > new Date();
                 return (
-                  <Card key={appt.id} className="p-4 animate-slide-up">
+                  <div key={appt.id} className="glass-panel p-4 rounded-xl border border-border-internal animate-slide-up group">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                          <User size={16} className="text-primary" />
+                        <div className="w-10 h-10 rounded-lg bg-surface-container-high border border-border-internal flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="material-symbols-outlined text-on-surface-variant text-[20px]">person</span>
                         </div>
                         <div>
-                          <h3 className="font-heading font-semibold text-sm">{appt.psychologist_name}</h3>
-                          <p className="text-xs text-text-muted">{appt.specialization}</p>
-                          <div className="flex items-center gap-1.5 mt-2 text-xs text-text-muted">
-                            <Calendar size={11} />
+                          <h3 className="font-body-md font-bold text-on-surface">{appt.psychologist_name}</h3>
+                          <p className="text-label-sm text-on-surface-variant">{appt.specialization}</p>
+                          <div className="flex items-center gap-1.5 mt-2 font-mono-data text-[10px] text-on-surface-variant uppercase">
+                            <span className="material-symbols-outlined text-[12px]">calendar_today</span>
                             {dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            <span>·</span>
-                            <Clock size={11} />
+                            <span>•</span>
+                            <span className="material-symbols-outlined text-[12px]">schedule</span>
                             {dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       </div>
                       <span className={`text-[10px] px-2 py-1 rounded-full border font-semibold flex items-center gap-1 shrink-0 ${statusCfg.color}`}>
-                        {statusCfg.icon} {statusCfg.label}
+                        <span className="material-symbols-outlined text-[12px]">{statusCfg.icon}</span> {statusCfg.label}
                       </span>
                     </div>
+                    
                     {appt.status === 'confirmed' && isFuture && (
-                      <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
+                      <div className="mt-4 pt-3 border-t border-border-internal flex justify-between items-center">
                         <button onClick={() => handleCancel(appt.id)}
-                          className="text-xs text-text-muted hover:text-error transition-colors flex items-center gap-1">
-                          <XCircle size={12} /> Cancel
+                          className="font-label-sm text-label-sm text-on-surface-variant hover:text-error transition-colors flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">cancel</span> Cancel
                         </button>
                         <div className="flex items-center gap-2">
                           {appt.meeting_link ? (
-                            <button className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-semibold hover:bg-primary/20 transition-all flex items-center gap-1.5">
-                              <Video size={12} /> Join Video
+                            <button className="text-xs bg-interactive-primary/20 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-interactive-primary/30 transition-all flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[14px]">videocam</span> Join Video
                             </button>
                           ) : appt.check_in_code ? (
-                            <button className="text-xs bg-surface-dim border border-border text-text px-3 py-1.5 rounded-lg font-semibold hover:bg-surface-bright transition-all flex items-center gap-1.5">
-                              <QrCode size={12} /> QR Check-in
+                            <button className="text-xs bg-surface-container-low border border-border-internal text-on-surface px-3 py-1.5 rounded-lg font-bold hover:bg-surface-container transition-all flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[14px]">qr_code</span> QR Check-in
                             </button>
                           ) : null}
                         </div>
                       </div>
                     )}
-                  </Card>
+                  </div>
                 );
               })
             )}

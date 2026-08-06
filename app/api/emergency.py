@@ -43,19 +43,19 @@ def trigger_emergency_sos(
     mock_psychologist_fcm_token = "placeholder-psychologist-fcm-token"
     send_push_notification(
         title="EMERGENCY SOS ALERT",
-        body=f"Student {student.alias} has triggered an SOS.",
+        body=f"Student {student.anonymous_token} has triggered an SOS.",
         fcm_token=mock_psychologist_fcm_token,
         data={"alert_id": str(alert.id), "student_id": str(student.id)}
     )
     
     # 4. Broadcast via WebSockets to live clinicians
-    asyncio.create_task(alert_manager.broadcast_alert({
+    alert_manager.dispatch_alert({
         "type": "EMERGENCY_SOS",
         "alert_id": alert.id,
         "student_alias": student.anonymous_token,
         "timestamp": alert.created_at.isoformat() if alert.created_at else None,
         "message": f"Student {student.anonymous_token} triggered an SOS."
-    }))
+    })
 
     return {"status": "success", "message": "Emergency SOS dispatched."}
 

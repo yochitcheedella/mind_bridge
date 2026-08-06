@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { BookOpen, PenLine, Tag, Trash2, CheckCircle2, Clock, ArrowLeft, Heart, Sparkles, X } from 'lucide-react';
+import { BookOpen, PenLine, Tag, Trash2, CheckCircle2, Clock, ArrowLeft, Heart, Sparkles, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { apiFetch } from '../utils/auth';
 
 interface AIInsight { summary: string; patterns: string[]; advice: string; }
@@ -41,7 +41,15 @@ export default function Journal() {
   const [gratitude3, setGratitude3] = useState('');
   const [gratitudeSaving, setGratitudeSaving] = useState(false);
   const [gratitudeSaved, setGratitudeSaved] = useState(false);
-  const gratitudeEntries = entries.filter(e => e.mood_tag === 'gratitude');
+  
+  // Date filtering state
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const gratitudeEntriesAll = entries.filter(e => e.mood_tag === 'gratitude');
+  const gratitudeEntries = selectedDate 
+    ? gratitudeEntriesAll.filter(e => new Date(e.created_at).toDateString() === selectedDate.toDateString())
+    : gratitudeEntriesAll;
 
   useEffect(() => {
     apiFetch('/api/journal/entries')
@@ -93,7 +101,77 @@ export default function Journal() {
     } finally { setGratitudeSaving(false); }
   };
 
-  const filtered = filterTag ? entries.filter(e => e.mood_tag === filterTag && e.mood_tag !== 'gratitude') : entries.filter(e => e.mood_tag !== 'gratitude');
+  const filteredByTag = filterTag ? entries.filter(e => e.mood_tag === filterTag && e.mood_tag !== 'gratitude') : entries.filter(e => e.mood_tag !== 'gratitude');
+  const filtered = selectedDate
+    ? filteredByTag.filter(e => new Date(e.created_at).toDateString() === selectedDate.toDateString())
+    : filteredByTag;
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this entry?")) return;
+    try {
+      const res = await apiFetch(`/api/journal/entry/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setEntries(prev => prev.filter(e => e.id !== id));
+      }
+    } catch (e) {
+      console.error("Failed to delete entry:", e);
+    }
+  };
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-8"></div>);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+      const hasEntry = entries.some(e => new Date(e.created_at).toDateString() === date.toDateString());
+      
+      days.push(
+        <button
+          key={`day-${i}`}
+          onClick={() => setSelectedDate(isSelected ? null : date)}
+          className={`h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
+            ${isSelected ? 'bg-primary text-white shadow-md' 
+              : hasEntry ? 'bg-primary/20 text-primary font-bold border border-primary/30' 
+              : 'text-text hover:bg-surface-bright'}`}
+        >
+          {i}
+        </button>
+      );
+    }
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    return (
+      <Card className="p-4 mb-4 animate-fade-in">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-heading font-semibold text-sm flex items-center gap-2">
+            <CalendarIcon size={16} className="text-primary" /> {monthNames[month]} {year}
+          </h3>
+          <div className="flex gap-1">
+            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} className="p-1 rounded hover:bg-surface-bright text-text-muted hover:text-text"><ChevronLeft size={16}/></button>
+            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} className="p-1 rounded hover:bg-surface-bright text-text-muted hover:text-text"><ChevronRight size={16}/></button>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d} className="text-[10px] text-text-muted font-semibold uppercase">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {days}
+        </div>
+      </Card>
+    );
+  };
 
   const fetchInsights = async () => {
     setLoadingInsight(true);
@@ -171,12 +249,23 @@ export default function Journal() {
               </button>
             </Card>
 
-            {gratitudeEntries.length > 0 && (
+            {gratitudeEntriesAll.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Past Gratitudes</h2>
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Past Gratitudes</h2>
+                  {selectedDate && (
+                    <button onClick={() => setSelectedDate(null)} className="text-primary hover:underline text-[10px]">
+                      Clear Filter
+                    </button>
+                  )}
+                </div>
+                {renderCalendar()}
                 <div className="space-y-3">
                   {gratitudeEntries.slice(0, 5).map(entry => (
-                    <Card key={entry.id} className="p-4">
+                    <Card key={entry.id} className="p-4 group relative">
+                      <button onClick={() => handleDelete(entry.id)} className="absolute top-4 right-4 p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={14} />
+                      </button>
                       <div className="flex items-center gap-1.5 text-xs text-text-muted mb-2">
                         <Clock size={11} />
                         {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -288,6 +377,19 @@ export default function Journal() {
         )}
 
         {/* Entries List */}
+        {entries.length > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Journal History</h2>
+              {selectedDate && (
+                <button onClick={() => setSelectedDate(null)} className="text-primary hover:underline text-[10px]">
+                  Clear Filter
+                </button>
+              )}
+            </div>
+            {renderCalendar()}
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center h-20 text-text-muted text-sm">Loading entries...</div>
         ) : filtered.length === 0 ? (
@@ -303,7 +405,10 @@ export default function Journal() {
               const date = new Date(entry.created_at);
               const preview = entry.content.length > 120 ? entry.content.slice(0, 120) + '…' : entry.content;
               return (
-                <Card key={entry.id} className="p-4 hover:bg-surface-bright/50 transition-colors cursor-default group animate-slide-up">
+                <Card key={entry.id} className="p-4 hover:bg-surface-bright/50 transition-colors cursor-default group animate-slide-up relative">
+                  <button onClick={() => handleDelete(entry.id)} className="absolute top-4 right-4 p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all">
+                    <Trash2 size={14} />
+                  </button>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       {tag && (
