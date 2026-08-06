@@ -1,7 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// TODO: Replace with your actual Firebase config from the console
 firebase.initializeApp({
   apiKey: "AIzaSyDnT6SqOLBmL69ht-fhh9abuDjVzfhoRc4",
   authDomain: "mind-bridge-7b156.firebaseapp.com",
