@@ -2,10 +2,10 @@ import { Link, useLocation } from 'react-router-dom';
 
 const STUDENT_NAV = [
   { path: '/student/home',         icon: 'home',          label: 'Home' },
-  { path: '/student/messages',     icon: 'forum',         label: 'Counselor' },
-  { path: '/student/chat',         icon: 'smart_toy',     label: 'AI Guide' },
+  { path: '/student/appointments', icon: 'psychology',    label: 'Psychologists' },
+  { path: '/student/chat',         icon: 'smart_toy',     label: 'Chat' },
   { path: '/student/journal',      icon: 'edit_note',     label: 'Journal' },
-  { path: '/student/emergency',    icon: 'emergency',     label: 'SOS', isAlert: true },
+  { path: '/student/profile',      icon: 'person',        label: 'Profile' },
 ];
 
 const PSYCHOLOGIST_NAV = [

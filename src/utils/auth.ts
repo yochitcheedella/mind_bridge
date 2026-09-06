@@ -24,8 +24,18 @@ export interface AuthState {
 }
 
 const AUTH_KEY = 'mindbridge_auth';
+const SAVED_PROFILE_KEY = 'mindbridge_saved_profile';
 const PRODUCTION_API_URL = 'https://mind-bridge-cc9m.onrender.com';
 const PRODUCTION_WS_URL = 'wss://mind-bridge-cc9m.onrender.com';
+
+export interface SavedProfile {
+  role: UserRole;
+  email?: string;
+  anonymous_alias?: string;
+  name?: string;
+  avatar_seed?: string;
+  last_login?: string;
+}
 
 const API_BASE = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
 export const API_URL = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
@@ -51,11 +61,37 @@ export function getAuth(): AuthState | null {
   }
 }
 
-export function setAuth(state: AuthState): void {
+export function getSavedProfile(): SavedProfile | null {
+  try {
+    const raw = localStorage.getItem(SAVED_PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSavedProfile(profile: SavedProfile): void {
+  localStorage.setItem(SAVED_PROFILE_KEY, JSON.stringify(profile));
+}
+
+export function clearSavedProfile(): void {
+  localStorage.removeItem(SAVED_PROFILE_KEY);
+}
+
+export function setAuth(state: AuthState, email?: string): void {
   localStorage.setItem(AUTH_KEY, JSON.stringify(state));
   if (state.primary_color) {
     applyPrimaryColor(state.primary_color);
   }
+  
+  // Persist quick profile for 1-tap returning login
+  setSavedProfile({
+    role: state.role,
+    email: email,
+    anonymous_alias: state.anonymous_alias,
+    name: state.name,
+    last_login: new Date().toISOString(),
+  });
 }
 
 export function applyPrimaryColor(color: string): void {

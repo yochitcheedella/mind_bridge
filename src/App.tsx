@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
 import { AppLayout } from './components/layout/AppLayout';
-import { getAuth, applyPrimaryColor } from './utils/auth';
+import { getAuth, applyPrimaryColor, getHomeRoute } from './utils/auth';
 
 // ── Auth Pages ─────────────────────────────────────────────────────────────────
 import Login from './pages/Login';
@@ -74,8 +74,17 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password"  element={<ResetPassword />} />
 
-        {/* Root → Login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Root → Home if logged in, else Login */}
+        <Route
+          path="/"
+          element={
+            getAuth() ? (
+              <Navigate to={getHomeRoute(getAuth()!.role)} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
 
         {/* ── Student Routes (Wrapped in Widescreen AppLayout) ── */}
         <Route path="/student/home"            element={withLayout(<StudentDashboard />)} />
