@@ -6,6 +6,7 @@ import {
   Calendar, MessageSquare, PhoneCall, BookOpen, Clock, Heart, Users
 } from 'lucide-react';
 import { getAlias, apiFetch, isLoggedIn } from '../utils/auth';
+import { OFFICIAL_COUNSELORS, VISHNU_WELLNESS_CENTRE } from '../data/counselors';
 
 const MOOD_CONFIG = [
   { score: 5, icon: 'sentiment_very_satisfied', label: 'Thriving', color: 'from-emerald-400 to-teal-600', textColor: 'text-emerald-400' },
@@ -30,7 +31,7 @@ export default function StudentDashboard() {
   });
   const [savingConsent, setSavingConsent] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState<any | null>(null);
-  const [counselors, setCounselors] = useState<any[]>([]);
+  const [counselors, setCounselors] = useState<any[]>(OFFICIAL_COUNSELORS);
   const alias = getAlias();
 
   useEffect(() => {
@@ -79,8 +80,15 @@ export default function StudentDashboard() {
       apiFetch('/api/appointments/psychologists')
         .then(r => r.json())
         .then(data => {
-          if (Array.isArray(data)) {
-            setCounselors(data);
+          if (Array.isArray(data) && data.length > 0) {
+            const merged = OFFICIAL_COUNSELORS.map(official => {
+              const match = data.find((b: any) => 
+                b.name.trim().toLowerCase() === official.name.trim().toLowerCase() ||
+                official.name.trim().toLowerCase().includes(b.name.trim().toLowerCase())
+              );
+              return match ? { ...official, id: match.id } : official;
+            });
+            setCounselors(merged);
           }
         })
         .catch(() => {});
@@ -473,63 +481,65 @@ export default function StudentDashboard() {
 
       </div>
 
-      {/* ── MindBridge Certified Psychologists & Therapists ── */}
-      <div className="p-6 sm:p-8 rounded-3xl border border-white/10 bg-gradient-to-br from-[#111624] via-[#141a2b] to-indigo-950/20 space-y-6 shadow-2xl">
+      {/* ── Vishnu Wellness Centre Care Team Showcase ── */}
+      <div className="p-6 sm:p-8 rounded-3xl border border-teal-500/20 bg-gradient-to-br from-[#101422] via-[#13192d] to-teal-950/20 space-y-6 shadow-2xl backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-teal-400 p-0.5 shadow-lg shadow-indigo-500/20">
-              <div className="w-full h-full rounded-2xl bg-[#111624] flex items-center justify-center text-teal-400">
-                <Users size={22} />
-              </div>
+            <div className="w-13 h-13 rounded-full overflow-hidden border border-teal-500/40 p-0.5 bg-white shadow-lg shadow-teal-500/20 shrink-0">
+              <img 
+                src={VISHNU_WELLNESS_CENTRE.logo_url} 
+                alt="Vishnu Wellness Centre" 
+                className="w-12 h-12 rounded-full object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-teal-400 font-extrabold bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/25">
-                  MindBridge Clinical Roster
+                <span className="text-[10px] font-mono uppercase tracking-widest text-teal-300 font-extrabold bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/25">
+                  {VISHNU_WELLNESS_CENTRE.institution} • Est. {VISHNU_WELLNESS_CENTRE.established}
                 </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               </div>
               <h2 className="text-xl sm:text-2xl font-heading font-black text-white mt-1">
-                Certified Psychologists & Therapists
+                {VISHNU_WELLNESS_CENTRE.name} — Care Team
               </h2>
-              <p className="text-xs text-white/60 font-medium">
-                1-on-1 confidential counseling · Audio Call & Encrypted Chat Available
+              <p className="text-xs text-teal-200/80 font-medium">
+                7 Dedicated Wellness Counsellors · Audio Calls & Confidential Chat
               </p>
             </div>
           </div>
           
           <Link
             to="/student/appointments"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-600 hover:from-indigo-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-500/20 shrink-0 self-start sm:self-auto active:scale-95"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-500/20 shrink-0 self-start sm:self-auto active:scale-95"
           >
             <span>Book Appointment</span>
             <ArrowRight size={14} />
           </Link>
         </div>
 
-        {/* Counselors Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {/* Counselors Grid with Real Headshots & Campus Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {counselors.map((c) => (
             <div 
-              key={c.id}
+              key={c.name}
               onClick={() => navigate('/student/appointments')}
-              className="p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-teal-500/40 transition-all cursor-pointer group flex flex-col items-center text-center shadow-sm hover:shadow-lg"
+              className="p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-teal-500/40 transition-all cursor-pointer group flex flex-col items-center text-center shadow-sm hover:shadow-lg"
             >
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-teal-500/30 group-hover:border-teal-400 group-hover:scale-105 transition-all shadow-md mb-2.5 bg-[#151a2a] shrink-0">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-teal-500/30 group-hover:border-teal-400 group-hover:scale-105 transition-all shadow-md mb-2 bg-[#151a2a] shrink-0">
                 <img 
-                  src={c.avatar_url || '/logo.png'} 
+                  src={c.avatar_url} 
                   alt={c.name}
                   className="w-full h-full object-cover object-top"
-                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
                 />
               </div>
               <h4 className="text-xs font-bold text-white group-hover:text-teal-300 transition-colors line-clamp-1 w-full">
                 {c.name}
               </h4>
-              <span className="text-[10px] text-white/50 line-clamp-1 mt-0.5">
-                {c.specialization || 'Clinical Psychology'}
+              <span className="text-[9px] text-teal-200/80 line-clamp-1 mt-0.5">
+                {c.institution}
               </span>
-              <div className="mt-2 flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20">
+              <div className="mt-1.5 flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>Available</span>
               </div>

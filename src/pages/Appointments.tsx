@@ -3,27 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   Building2, Sparkles, Heart, Shield, Award, Clock, Calendar, 
   X, Check, MessageSquare, PhoneCall, ChevronRight, Info,
-  Globe, UserCheck, Lock, AlertCircle
+  Globe, UserCheck, Lock, AlertCircle, Sparkle, BookOpen
 } from 'lucide-react';
 import { apiFetch, getAlias } from '../utils/auth';
-
-interface CounselorProfile {
-  id: number;
-  name: string;
-  specialization: string;
-  institution?: string;
-  experience?: string;
-  avatar_url?: string;
-  full_photo_url?: string;
-  quote?: string;
-  pillars?: string;
-  focus_areas?: string;
-  message_to_students?: string;
-  fun_facts?: string;
-  languages?: string;
-  availability?: string;
-  is_online?: boolean;
-}
+import { 
+  OFFICIAL_COUNSELORS, 
+  VISHNU_WELLNESS_CENTRE, 
+  type CounselorData 
+} from '../data/counselors';
 
 interface Appointment {
   id: number;
@@ -50,37 +37,52 @@ export default function Appointments() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'team' | 'book' | 'mine'>('team');
   const [myAppts, setMyAppts] = useState<Appointment[]>([]);
-  const [psychologists, setPsychologists] = useState<CounselorProfile[]>([]);
+  const [psychologists, setPsychologists] = useState<CounselorData[]>(OFFICIAL_COUNSELORS);
+  const [backendIdMap, setBackendIdMap] = useState<Record<string, number>>({});
   const [selectedDoc, setSelectedDoc] = useState<string>('1'); 
   const [reqDate, setReqDate] = useState('');
   const [reqTime, setReqTime] = useState('');
   const [isBooking, setIsBooking] = useState(false);
   const [loadingMine, setLoadingMine] = useState(true);
   const [bookedMsg, setBookedMsg] = useState('');
-  const [activeModalCounselor, setActiveModalCounselor] = useState<CounselorProfile | null>(null);
+  const [activeModalCounselor, setActiveModalCounselor] = useState<CounselorData | null>(null);
 
   // Sync with Backend
   useEffect(() => {
-    // Load psychologists
+    // Load psychologists and map backend IDs to official profiles
     apiFetch('/api/appointments/psychologists')
       .then(r => r.json())
-      .then(d => {
-        if (Array.isArray(d)) {
-          // Enrich with mobile clinical defaults if not present
-          const enriched = d.map((p: any, index: number) => ({
-            ...p,
-            languages: p.languages || (index % 2 === 0 ? 'English, Telugu, Hindi' : 'English, Hindi, Tamil'),
-            availability: p.availability || 'Mon - Fri, 9:00 AM - 5:00 PM',
-            is_online: true,
-            focus_areas: p.focus_areas || 'Academic Stress; Anxiety & Imposter Syndrome; Emotional Resilience',
-          }));
-          setPsychologists(enriched);
-          if (enriched.length > 0 && !selectedDoc) {
-            setSelectedDoc(enriched[0].id.toString());
+      .then(backendDocs => {
+        if (Array.isArray(backendDocs) && backendDocs.length > 0) {
+          const idMap: Record<string, number> = {};
+          
+          // Map backend IDs to official profiles
+          const merged = OFFICIAL_COUNSELORS.map(official => {
+            const match = backendDocs.find((b: any) => 
+              b.name.trim().toLowerCase() === official.name.trim().toLowerCase() ||
+              official.name.trim().toLowerCase().includes(b.name.trim().toLowerCase())
+            );
+            if (match) {
+              idMap[official.name] = match.id;
+              return {
+                ...official,
+                id: match.id, // Use real backend DB id
+              };
+            }
+            return official;
+          });
+
+          setPsychologists(merged);
+          setBackendIdMap(idMap);
+          if (merged.length > 0) {
+            setSelectedDoc(merged[0].id.toString());
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback to local official data
+        setPsychologists(OFFICIAL_COUNSELORS);
+      });
 
     const loadAppointments = () => {
       apiFetch('/api/appointments/mine')
@@ -109,7 +111,7 @@ export default function Appointments() {
     loadAppointments();
     const interval = setInterval(loadAppointments, 4000);
     return () => clearInterval(interval);
-  }, [selectedDoc]);
+  }, []);
 
   const handleSelectCounselorForBooking = (counselorId: number) => {
     setSelectedDoc(counselorId.toString());
@@ -146,36 +148,38 @@ export default function Appointments() {
   };
 
   // Helper to check if user has a confirmed appointment with a specific counselor
-  const getConfirmedApptForCounselor = (counselorId: number) => {
-    return myAppts.find(a => (a.psychologist_id === counselorId || a.psychologist_name.includes(psychologists.find(p => p.id === counselorId)?.name || '')) && a.status === 'confirmed');
+  const getConfirmedApptForCounselor = (counselor: CounselorData) => {
+    return myAppts.find(a => 
+      (a.psychologist_id === counselor.id || 
+       a.psychologist_name.toLowerCase().includes(counselor.name.toLowerCase().split(' ')[0])) && 
+      a.status === 'confirmed'
+    );
   };
 
   const selectedCounselor = psychologists.find(p => p.id.toString() === selectedDoc);
 
   return (
-    <div className="min-h-screen bg-[#090c15] pb-28 text-white">
-      {/* ── Top Bar ── */}
-      <header className="sticky top-0 z-20 bg-[#0c101d]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-lg">
+    <div className="min-h-screen bg-[#080b13] pb-28 text-white">
+      {/* ── Top Bar with Official Vishnu Wellness Centre Logo ── */}
+      <header className="sticky top-0 z-20 bg-[#0c101d]/95 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-3">
           <Link to="/student/home" className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </Link>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-teal-400 p-0.5 shadow-sm">
-              <div className="w-full h-full rounded-full bg-[#0c101d] flex items-center justify-center">
-                <img 
-                  src="/logo.svg" 
-                  alt="MindBridge AI" 
-                  className="w-5 h-5 object-contain"
-                />
-              </div>
+            <div className="w-9 h-9 rounded-full overflow-hidden border border-teal-500/40 shadow-sm p-0.5 bg-white shrink-0">
+              <img 
+                src={VISHNU_WELLNESS_CENTRE.logo_url} 
+                alt="Vishnu Wellness Centre" 
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
             <div>
               <h1 className="font-heading font-bold text-sm sm:text-base flex items-center gap-1.5 leading-tight text-white">
-                <span>MindBridge Care Team</span>
-                <span className="text-[11px] font-mono text-teal-400 hidden sm:inline">• Clinical Psychologists</span>
+                <span>{VISHNU_WELLNESS_CENTRE.name}</span>
+                <span className="text-[11px] font-mono text-teal-400 hidden sm:inline">• Official Care Team</span>
               </h1>
-              <p className="font-mono text-[10px] text-white/50">Confidential · Audio & Encrypted Chat</p>
+              <p className="font-mono text-[10px] text-white/50">{VISHNU_WELLNESS_CENTRE.institution} • Est. {VISHNU_WELLNESS_CENTRE.established}</p>
             </div>
           </div>
         </div>
@@ -199,26 +203,29 @@ export default function Appointments() {
           </div>
         )}
 
-        {/* ── Header Banner ── */}
-        <div className="p-6 sm:p-7 rounded-3xl border border-white/10 relative overflow-hidden mb-8 shadow-2xl bg-gradient-to-r from-[#111624] via-[#141b2e] to-indigo-950/30">
-          <div className="absolute -top-24 -right-24 w-60 h-60 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* ── Official Institutional Showcase Banner (Page 8 from Brochure) ── */}
+        <div className="p-6 sm:p-7 rounded-3xl border border-teal-500/30 relative overflow-hidden mb-8 shadow-2xl bg-gradient-to-r from-[#101524] via-[#13192d] to-teal-950/20 backdrop-blur-xl">
+          <div className="absolute -top-24 -right-24 w-60 h-60 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-300 font-semibold">
-                <UserCheck size={13} />
-                <span>Certified Clinical Therapists & Counselors</span>
+            <div className="space-y-2.5 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-teal-300 font-semibold">
+                <Building2 size={13} />
+                <span>{VISHNU_WELLNESS_CENTRE.institution} • Established {VISHNU_WELLNESS_CENTRE.established}</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-heading font-black text-white tracking-tight">
-                Dedicated 1-on-1 Psychological Support
+                Our Team of 7 Dedicated Wellness Counsellors
               </h2>
               <p className="text-sm text-white/70 leading-relaxed">
-                Connect confidentially with licensed mental health specialists for academic stress, anxiety, emotional regulation, and personal growth.
+                Working around the clock to support the mental health, resilience, and personal growth of students across all Vishnu campuses. Safe, ethical, and 100% confidential.
               </p>
-              <div className="flex flex-wrap gap-2 pt-2 text-[11px] font-mono text-white/60">
-                <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10">🔒 100% Confidential</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10">🎙️ Audio Call</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10">💬 Real-time Chat</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10">🛡️ Protected Alias</span>
+              
+              {/* 5 Core Pillars from Page 8 */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono text-teal-200">
+                {VISHNU_WELLNESS_CENTRE.pillars.map(pillar => (
+                  <span key={pillar} className="px-2.5 py-0.5 rounded-lg bg-teal-500/10 border border-teal-500/20">
+                    ♡ {pillar}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -231,7 +238,7 @@ export default function Appointments() {
                     : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
                 }`}
               >
-                Psychologists ({psychologists.length})
+                Meet All 7 Counselors
               </button>
               <button 
                 onClick={() => setActiveTab('book')}
@@ -241,7 +248,7 @@ export default function Appointments() {
                     : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
                 }`}
               >
-                Book Appointment
+                Book a Session
               </button>
             </div>
           </div>
@@ -258,7 +265,7 @@ export default function Appointments() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">psychology</span>
-            <span>All Psychologists ({psychologists.length})</span>
+            <span>Meet Counselors ({psychologists.length})</span>
           </button>
 
           <button 
@@ -287,102 +294,115 @@ export default function Appointments() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════
-            TAB 1: MEET THE PSYCHOLOGISTS (Full Therapist Cards)
+            TAB 1: MEET THE 7 COUNSELORS (Rich Detailed Cards from PDF)
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'team' && (
           <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-lg font-heading font-bold text-white">Available MindBridge Specialists</h3>
-                <p className="text-xs text-white/60">Verified psychologists with expertise in student emotional regulation and cognitive therapy.</p>
+                <h3 className="text-lg font-heading font-bold text-white">Our Dedicated Wellness Counsellors</h3>
+                <p className="text-xs text-white/60">Every counsellor specializes in creating empathetic, non-judgemental spaces for students.</p>
               </div>
               <span className="text-xs font-mono text-teal-300 self-start sm:self-auto bg-teal-500/10 px-3 py-1 rounded-full border border-teal-500/20">
-                Encrypted & Safe
+                100% Free Campus Care
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {psychologists.map((c) => {
-                const confirmedAppt = getConfirmedApptForCounselor(c.id);
+                const confirmedAppt = getConfirmedApptForCounselor(c);
                 return (
                   <div 
-                    key={c.id} 
-                    className="p-5 sm:p-6 rounded-3xl bg-[#111624]/90 border border-white/10 hover:border-teal-500/40 transition-all duration-300 flex flex-col justify-between group shadow-xl hover:shadow-2xl hover:-translate-y-1 backdrop-blur-xl relative overflow-hidden"
+                    key={c.name} 
+                    className="p-5 sm:p-6 rounded-3xl bg-[#101422]/90 border border-white/10 hover:border-teal-500/40 transition-all duration-300 flex flex-col justify-between group shadow-xl hover:shadow-2xl hover:-translate-y-1 backdrop-blur-xl relative overflow-hidden"
                   >
                     <div className="space-y-4">
-                      {/* Top Row: Photo, Status, Name */}
+                      {/* Top Row: Photo, Status, Name, Campus */}
                       <div className="flex items-start gap-4">
                         <div className="relative shrink-0">
                           <img 
-                            src={c.avatar_url || '/logo.png'} 
+                            src={c.avatar_url} 
                             alt={c.name} 
                             className="w-16 h-16 rounded-2xl object-cover border-2 border-teal-500/30 shadow-md group-hover:scale-105 transition-transform bg-[#151a2a]"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
                           />
-                          {/* Online Status Badge */}
+                          {/* Live Online Badge */}
                           <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-[#111624]" />
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-[#101422]" />
                           </span>
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-1">
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-                              ● Online Now
+                              ● Available
                             </span>
                           </div>
                           <h4 className="font-heading font-bold text-base text-white tracking-tight leading-snug truncate">
                             {c.name}
                           </h4>
                           <p className="text-[11px] font-semibold text-teal-300 truncate mt-0.5">
-                            {c.specialization.split('·')[0]}
+                            {c.specialization}
+                          </p>
+                          <p className="text-[10px] font-mono text-white/60 truncate mt-1">
+                            📍 {c.institution}
                           </p>
                         </div>
                       </div>
 
-                      {/* Bio & Focus Summary */}
-                      <p className="text-xs text-white/70 line-clamp-3 leading-relaxed">
-                        {c.quote ? `“${c.quote.replace('♡', '')}”` : (c.focus_areas || 'Licensed clinical counselor dedicated to cognitive wellness.')}
-                      </p>
+                      {/* Official Quote from PDF */}
+                      {c.quote && (
+                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 text-xs text-teal-200/90 italic font-serif leading-relaxed line-clamp-3">
+                          “{c.quote.replace('♡', '').trim()} ♡”
+                        </div>
+                      )}
 
-                      {/* Meta Pills: Experience, Languages, Availability */}
-                      <div className="space-y-1.5 pt-2 border-t border-white/5 text-xs text-white/70">
+                      {/* Core Pillars */}
+                      {c.pillars && c.pillars.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {c.pillars.map((p, idx) => (
+                            <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/20 text-teal-300">
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Experience & Languages Meta */}
+                      <div className="space-y-1 pt-2 border-t border-white/5 text-xs text-white/70">
                         <div className="flex items-center gap-2 font-mono text-[11px]">
                           <Award size={13} className="text-teal-400 shrink-0" />
-                          <span>Experience: <strong className="text-white">{c.experience || '5+ Years'}</strong></span>
+                          <span>Experience: <strong className="text-white">{c.experience}</strong></span>
                         </div>
                         <div className="flex items-center gap-2 font-mono text-[11px]">
                           <Globe size={13} className="text-indigo-400 shrink-0" />
                           <span className="truncate">Languages: <strong className="text-white">{c.languages}</strong></span>
                         </div>
-                        <div className="flex items-center gap-2 font-mono text-[11px]">
-                          <Clock size={13} className="text-teal-400 shrink-0" />
-                          <span className="truncate">Hours: <strong className="text-white">{c.availability}</strong></span>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Action Buttons: Book, Chat, Audio Call */}
+                    {/* Action Buttons */}
                     <div className="pt-4 mt-4 border-t border-white/10 space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         <button 
+                          onClick={() => setActiveModalCounselor(c)}
+                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10 transition-colors text-center flex items-center justify-center gap-1 active:scale-95"
+                        >
+                          <BookOpen size={13} className="text-teal-400" />
+                          <span>View Full Bio</span>
+                        </button>
+
+                        <button 
                           onClick={() => handleSelectCounselorForBooking(c.id)}
-                          className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 text-center flex items-center justify-center gap-1.5 active:scale-95"
+                          className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 text-center flex items-center justify-center gap-1 active:scale-95"
                         >
                           <Calendar size={13} />
                           <span>Book Session</span>
                         </button>
-
-                        <button 
-                          onClick={() => navigate(`/student/messages?counselorId=${c.id}`)}
-                          className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10 transition-colors text-center flex items-center justify-center gap-1.5 active:scale-95"
-                        >
-                          <MessageSquare size={13} className="text-teal-400" />
-                          <span>Chat</span>
-                        </button>
                       </div>
 
-                      {/* Audio Call Action with Verification Gate */}
+                      {/* Audio Call / Gated Indicator */}
                       {confirmedAppt ? (
                         <button
                           onClick={() => navigate(`/call/${confirmedAppt.id}`)}
@@ -394,7 +414,7 @@ export default function Appointments() {
                       ) : (
                         <div className="w-full py-2 px-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/40 flex items-center justify-center gap-1.5 font-mono">
                           <Lock size={12} />
-                          <span>Audio call unlocks upon confirmation</span>
+                          <span>Audio call unlocks upon confirmed session</span>
                         </div>
                       )}
                     </div>
@@ -410,7 +430,7 @@ export default function Appointments() {
         ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'book' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#111624]/90 border border-white/10 shadow-2xl space-y-6 backdrop-blur-xl">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#101422]/90 border border-white/10 shadow-2xl space-y-6 backdrop-blur-xl">
               
               <div className="border-b border-white/10 pb-4">
                 <h3 className="font-heading text-xl font-bold text-white flex items-center gap-2">
@@ -418,7 +438,7 @@ export default function Appointments() {
                   <span>Request a Confidential Counseling Session</span>
                 </h3>
                 <p className="text-xs text-white/60 mt-1">
-                  Select your counselor, preferred date, and time. Your anonymous alias protects your privacy.
+                  Select your counselor from the 7 campus specialists, choose date and time. Your anonymous alias protects your privacy.
                 </p>
               </div>
 
@@ -426,15 +446,15 @@ export default function Appointments() {
               <div className="space-y-3">
                 <label className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-300 flex items-center justify-center text-[11px] font-bold">1</span>
-                  <span>Select Psychologist</span>
+                  <span>Select Wellness Counsellor</span>
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1 hide-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 hide-scrollbar">
                   {psychologists.map((doc) => {
                     const isSelected = selectedDoc === doc.id.toString();
                     return (
                       <div 
-                        key={doc.id}
+                        key={doc.name}
                         onClick={() => setSelectedDoc(doc.id.toString())}
                         className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
                           isSelected
@@ -443,17 +463,18 @@ export default function Appointments() {
                         }`}
                       >
                         <img 
-                          src={doc.avatar_url || '/logo.png'} 
+                          src={doc.avatar_url} 
                           alt={doc.name} 
                           className="w-12 h-12 rounded-xl object-cover border border-teal-500/30 shrink-0 bg-[#151a2a]" 
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
                         />
                         <div className="overflow-hidden flex-1">
                           <h4 className="font-heading font-bold text-sm text-white truncate">{doc.name}</h4>
-                          <p className="text-[11px] text-teal-300 truncate">{doc.specialization}</p>
-                          <span className="text-[10px] font-mono text-white/50">{doc.experience || 'Certified'}</span>
+                          <p className="text-[11px] text-teal-300 truncate">{doc.institution}</p>
+                          <span className="text-[10px] font-mono text-white/50">{doc.experience}</span>
                         </div>
                         {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-teal-400 flex items-center justify-center text-[#090c15] shrink-0 font-bold">
+                          <div className="w-5 h-5 rounded-full bg-teal-400 flex items-center justify-center text-[#080b13] shrink-0 font-bold">
                             <Check size={13} />
                           </div>
                         )}
@@ -468,14 +489,14 @@ export default function Appointments() {
                 <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <img 
-                      src={selectedCounselor.avatar_url || '/logo.png'} 
+                      src={selectedCounselor.avatar_url} 
                       alt={selectedCounselor.name} 
                       className="w-11 h-11 rounded-xl object-cover border border-teal-500/30 shrink-0 bg-[#151a2a]"
                     />
                     <div className="overflow-hidden">
                       <p className="text-xs text-white/50">Selected Specialist:</p>
                       <h4 className="font-heading font-bold text-sm text-white truncate">{selectedCounselor.name}</h4>
-                      <p className="text-[11px] text-teal-300 truncate">{selectedCounselor.specialization} • {selectedCounselor.experience}</p>
+                      <p className="text-[11px] text-teal-300 truncate">{selectedCounselor.institution} • {selectedCounselor.experience}</p>
                     </div>
                   </div>
                   <button 
@@ -553,17 +574,17 @@ export default function Appointments() {
             {loadingMine ? (
               <div className="text-center py-12 text-white/50 text-sm">Loading your sessions...</div>
             ) : myAppts.length === 0 ? (
-              <div className="text-center py-14 rounded-3xl text-white/60 border border-white/10 p-6 bg-[#111624]/90">
+              <div className="text-center py-14 rounded-3xl text-white/60 border border-white/10 p-6 bg-[#101422]/90">
                 <span className="material-symbols-outlined text-[44px] mx-auto mb-3 opacity-30 text-teal-400">event_busy</span>
                 <h3 className="text-lg font-heading font-bold text-white mb-1">No counseling sessions yet</h3>
                 <p className="text-xs text-white/50 max-w-sm mx-auto mb-5 leading-relaxed">
-                  You haven't requested any counseling sessions yet. Our licensed psychologists are ready to connect.
+                  You haven't requested any counseling sessions yet. Our 7 dedicated campus counsellors are here to listen and help.
                 </p>
                 <button 
                   onClick={() => setActiveTab('team')} 
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-500 text-white font-bold text-xs hover:brightness-110 transition-all shadow-lg shadow-indigo-500/20"
                 >
-                  Meet Psychologists & Book →
+                  Meet Counselors & Book →
                 </button>
               </div>
             ) : (
@@ -573,7 +594,7 @@ export default function Appointments() {
                 const isConfirmed = appt.status === 'confirmed';
 
                 return (
-                  <div key={appt.id} className="p-5 sm:p-6 rounded-3xl bg-[#111624]/90 border border-white/10 animate-slide-up group shadow-xl space-y-4">
+                  <div key={appt.id} className="p-5 sm:p-6 rounded-3xl bg-[#101422]/90 border border-white/10 animate-slide-up group shadow-xl space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3.5">
                         <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -653,12 +674,12 @@ export default function Appointments() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          COUNSELOR FULL BIO MODAL
+          COUNSELOR FULL BIO MODAL (Complete Content from Brochure)
       ══════════════════════════════════════════════════════════════════════ */}
       {activeModalCounselor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
           <div 
-            className="bg-[#111624] w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 p-6 sm:p-8 shadow-2xl relative animate-scale-in hide-scrollbar space-y-6"
+            className="bg-[#101422] w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-teal-500/30 p-6 sm:p-8 shadow-2xl relative animate-scale-in hide-scrollbar space-y-6"
             onClick={e => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -669,14 +690,18 @@ export default function Appointments() {
               <X size={18} />
             </button>
 
-            {/* Header Profile */}
+            {/* Header: Photo, Name, Specialization, Campus */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
               <img 
-                src={activeModalCounselor.avatar_url || '/logo.png'} 
+                src={activeModalCounselor.full_photo_url || activeModalCounselor.avatar_url} 
                 alt={activeModalCounselor.name} 
-                className="w-24 h-24 rounded-2xl object-cover border-2 border-teal-400 shadow-xl shrink-0 bg-[#151a2a]"
+                className="w-28 h-36 object-cover rounded-2xl border-2 border-teal-400 shadow-xl shrink-0 bg-[#151a2a]"
+                onError={(e) => { (e.target as HTMLImageElement).src = activeModalCounselor.avatar_url; }}
               />
-              <div className="space-y-1">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-[10px] font-mono font-bold">
+                  <span>{activeModalCounselor.institution}</span>
+                </div>
                 <h3 className="text-xl sm:text-2xl font-heading font-black text-white">{activeModalCounselor.name}</h3>
                 <p className="text-xs sm:text-sm text-teal-300 font-semibold">{activeModalCounselor.specialization}</p>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs">
@@ -684,28 +709,28 @@ export default function Appointments() {
                     ● Available for Booking
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/70">
-                    ⭐ {activeModalCounselor.experience || '5+ Years Experience'}
+                    ⭐ {activeModalCounselor.experience} Experience
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Quote */}
+            {/* Quote / Motto */}
             {activeModalCounselor.quote && (
               <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-sm text-teal-200/90 italic font-serif leading-relaxed text-center">
-                “{activeModalCounselor.quote.replace('♡', '')}”
+                “{activeModalCounselor.quote.replace('♡', '').trim()} ♡”
               </div>
             )}
 
-            {/* Support Areas */}
-            {activeModalCounselor.focus_areas && (
+            {/* Ways I Can Support You (Focus Areas) */}
+            {activeModalCounselor.focus_areas && activeModalCounselor.focus_areas.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
                   <Sparkles size={14} className="text-teal-400" />
-                  <span>Clinical Areas of Focus</span>
+                  <span>Ways I Can Support You</span>
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {activeModalCounselor.focus_areas.split(';').map((area, idx) => (
+                  {activeModalCounselor.focus_areas.map((area, idx) => (
                     <span key={idx} className="text-xs px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-white/90">
                       {area.trim()}
                     </span>
@@ -714,15 +739,41 @@ export default function Appointments() {
               </div>
             )}
 
-            {/* Message to Students */}
+            {/* What I Wish Every Student Knew */}
             {activeModalCounselor.message_to_students && (
-              <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-1.5">
+              <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 space-y-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                   <Heart size={14} />
-                  <span>Personal Message to Students</span>
+                  <span>What I Wish Every Student Knew</span>
                 </h4>
                 <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
                   {activeModalCounselor.message_to_students}
+                </p>
+              </div>
+            )}
+
+            {/* If Coming to Counselling Feels Scary */}
+            {activeModalCounselor.if_scary && (
+              <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/25 space-y-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-teal-300 flex items-center gap-1.5">
+                  <Shield size={14} />
+                  <span>If Seeking Support Feels Scary</span>
+                </h4>
+                <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                  {activeModalCounselor.if_scary}
+                </p>
+              </div>
+            )}
+
+            {/* Fun Facts / Beyond the Counselling Room */}
+            {activeModalCounselor.fun_facts && (
+              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white/80 flex items-center gap-1.5">
+                  <Info size={14} className="text-amber-400" />
+                  <span>A Few Things About Me</span>
+                </h4>
+                <p className="text-xs text-white/70 leading-relaxed">
+                  {activeModalCounselor.fun_facts}
                 </p>
               </div>
             )}
@@ -739,7 +790,7 @@ export default function Appointments() {
                 onClick={() => handleSelectCounselorForBooking(activeModalCounselor.id)}
                 className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 text-white font-extrabold text-xs sm:text-sm transition-all shadow-lg shadow-indigo-500/20"
               >
-                Book with {activeModalCounselor.name.split(' ')[0]} →
+                Book Session with {activeModalCounselor.name.split(' ')[0]} →
               </button>
             </div>
           </div>
