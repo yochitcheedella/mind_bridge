@@ -280,6 +280,50 @@ export default function Login() {
                 )}
               </button>
 
+              {/* Quick Demo Fill Pills */}
+              <div className="pt-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/40">
+                    Quick-Fill Demo Credentials:
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('admin@vishnu.edu.in');
+                      setPassword('Admin@VIT2024');
+                      setError('');
+                    }}
+                    className="px-2 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-[11px] font-semibold text-purple-300 transition-all text-center active:scale-95"
+                  >
+                    🛡️ Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('ram.sir@vishnu.edu.in');
+                      setPassword('Psych@VIT2024');
+                      setError('');
+                    }}
+                    className="px-2 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-[11px] font-semibold text-teal-300 transition-all text-center active:scale-95"
+                  >
+                    🧠 Psych
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('student@vishnu.edu.in');
+                      setPassword('Student@VIT2024');
+                      setError('');
+                    }}
+                    className="px-2 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-[11px] font-semibold text-indigo-300 transition-all text-center active:scale-95"
+                  >
+                    🎓 Student
+                  </button>
+                </div>
+              </div>
+
               {/* New student register */}
               <div className="mt-5 text-center pt-2">
                 <Link
