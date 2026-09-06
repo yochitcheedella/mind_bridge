@@ -31,3 +31,4 @@ uploads/
 .pytest_cache/
 mindbridge.db
 seed_psychologists.py
+.vercel

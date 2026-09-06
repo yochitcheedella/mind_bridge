@@ -1,6 +1,9 @@
 import os
-from sqlalchemy import create_engine
+import logging
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+logger = logging.getLogger(__name__)
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mindbridge.db")
 
@@ -8,18 +11,30 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mindbridge.db")
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+
+def _create_engine(url: str):
+    if url.startswith("sqlite"):
+        return create_engine(url, connect_args={"check_same_thread": False})
+    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10)
+
+
+# Try the configured URL; fall back to SQLite if connection fails
+try:
+    engine = _create_engine(SQLALCHEMY_DATABASE_URL)
+    # Validate the connection is actually reachable
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    logger.info(f"Database connected: {SQLALCHEMY_DATABASE_URL[:40]}...")
+except Exception as e:
+    logger.warning(
+        f"Could not connect to DATABASE_URL ({e}). "
+        "Falling back to SQLite (./mindbridge.db)."
     )
-else:
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20
-    )
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./mindbridge.db"
+    engine = _create_engine(SQLALCHEMY_DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def get_db():
     db = SessionLocal()
@@ -27,3 +42,4 @@ def get_db():
         yield db
     finally:
         db.close()
+
