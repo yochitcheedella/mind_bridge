@@ -24,25 +24,22 @@ export interface AuthState {
 }
 
 const AUTH_KEY = 'mindbridge_auth';
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+const PRODUCTION_API_URL = 'https://mind-bridge-cc9m.onrender.com';
+const PRODUCTION_WS_URL = 'wss://mind-bridge-cc9m.onrender.com';
 
-export const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+const API_BASE = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
+export const API_URL = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
 
 export function getWsBaseUrl(): string {
   if (import.meta.env.VITE_WS_URL) {
-    return import.meta.env.VITE_WS_URL.replace('localhost', '127.0.0.1');
+    return import.meta.env.VITE_WS_URL;
   }
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL
       .replace('http://', 'ws://')
-      .replace('https://', 'wss://')
-      .replace('localhost', '127.0.0.1');
+      .replace('https://', 'wss://');
   }
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  if (window.location.port === '5173' || window.location.port === '3000') {
-    return `${protocol}//127.0.0.1:8000`;
-  }
-  return `${protocol}//${window.location.host}`;
+  return PRODUCTION_WS_URL;
 }
 
 export function getAuth(): AuthState | null {
