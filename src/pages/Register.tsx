@@ -74,7 +74,7 @@ export default function Register() {
       setStep('reveal');
     } catch (err: any) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        setError("Unable to reach backend API server. Please confirm the FastAPI service is running on port 8000 (npm run start:backend).");
+        setError("Unable to connect to MindBridge server. Please check your internet connection or try again in a few seconds.");
       } else {
         setError(err.message || 'An unexpected error occurred during institutional registration.');
       }
