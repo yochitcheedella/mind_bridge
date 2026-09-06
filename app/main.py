@@ -43,6 +43,12 @@ from app.api.call_signaling import router as call_signaling_router
 Base.metadata.create_all(bind=engine)
 os.makedirs("uploads", exist_ok=True)
 try:
+    from migrate_db import migrate
+    migrate()
+except Exception as e:
+    print(f"Schema migration note: {e}")
+
+try:
     from app.core.seed import seed_demo_accounts
     seed_demo_accounts()
 except Exception as e:
@@ -146,6 +152,27 @@ async def get_clinical_pulse():
         "avg_resolution_mins": 14,
         "sentiment_trend": "-12%",
     }
+
+# ── Direct App Download Endpoints ──────────────────────────────────────────────
+@app.get("/download", tags=["downloads"])
+@app.get("/download-apk", tags=["downloads"])
+async def download_apk():
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    candidates = [
+        "MindBridge-VIT-v1.1.apk",
+        "MindBridge-VIT.apk",
+        "android/app/build/outputs/apk/debug/app-debug.apk",
+        "uploads/MindBridge-VIT.apk"
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return FileResponse(
+                c,
+                media_type="application/vnd.android.package-archive",
+                filename="MindBridge-VIT.apk"
+            )
+    raise HTTPException(status_code=404, detail="APK build in progress, please check back shortly.")
 
 # ── Static SPA Frontend Serving (Full Production Deployment Ready) ─────────────
 if os.path.exists("dist"):

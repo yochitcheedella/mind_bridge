@@ -6,8 +6,9 @@ No SaaS, no multi-tenant, no university selection.
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 import random
+import re
 
 from app.core.database import get_db
 from app.core.security import (
@@ -48,11 +49,11 @@ def _get_current_student(
 class StudentRegisterRequest(BaseModel):
     name: str
     phone: str
-    alias: str
+    alias: str = ""
     email: str
     password: str
     department: str = "General"
-    year: int = 1
+    year: Any = 1
 
 
 class LoginRequest(BaseModel):
@@ -125,6 +126,18 @@ def register_student(req: StudentRegisterRequest, db: Session = Depends(get_db))
     enc_phone = encrypt_data(req.phone.strip())
     enc_email = encrypt_data(email_clean)
 
+    # Safely parse year from int, string, or mixed format like "Year 3"
+    parsed_year = 1
+    try:
+        if isinstance(req.year, int):
+            parsed_year = req.year
+        elif isinstance(req.year, str):
+            digits = re.findall(r'\d+', req.year)
+            parsed_year = int(digits[0]) if digits else 1
+    except Exception:
+        parsed_year = 1
+    parsed_year = max(1, min(10, parsed_year))
+
     student = Student(
         email_hash=email_clean,
         password_hash=hash_password(req.password),
@@ -133,7 +146,7 @@ def register_student(req: StudentRegisterRequest, db: Session = Depends(get_db))
         encrypted_email=enc_email,
         anonymous_token=alias,
         department=req.department.strip() or "General",
-        year=max(1, min(10, req.year)),
+        year=parsed_year,
         risk_score=0.0,
         burnout_probability=0.0,
         daily_wellness_score=100,

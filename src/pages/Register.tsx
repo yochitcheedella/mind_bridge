@@ -26,22 +26,28 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+        const numericYear = typeof year === 'number' ? year : (parseInt(String(year).replace(/\D/g, '')) || 1);
+        const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          name, 
-          phone, 
-          alias, 
-          email, 
+          name: name.trim(), 
+          phone: phone.trim(), 
+          alias: alias.trim(), 
+          email: email.trim().toLowerCase(), 
           password, 
           department, 
-          year 
+          year: numericYear 
         }),
       });
       if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || 'Registration failed');
+        const d = await res.json().catch(() => ({}));
+        const msg = typeof d.detail === 'string'
+          ? d.detail
+          : (Array.isArray(d.detail)
+              ? d.detail.map((x: any) => x.msg || x).join(', ')
+              : (d.message || 'Registration failed'));
+        throw new Error(msg);
       }
       const data = await res.json();
       setAuth({ 
@@ -74,7 +80,7 @@ export default function Register() {
       setStep('reveal');
     } catch (err: any) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        setError("Unable to connect to MindBridge server. Please check your internet connection or try again in a few seconds.");
+        setError("Connecting to server... If the server was idle, it may take 15-30 seconds to respond. Please tap again.");
       } else {
         setError(err.message || 'An unexpected error occurred during institutional registration.');
       }
