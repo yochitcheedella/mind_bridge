@@ -43,6 +43,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminReports from './pages/AdminReports';
 import AnonymousAudioCall from './pages/AnonymousAudioCall';
 import CounselorChat from './pages/CounselorChat';
+import { AppSplashScreen } from './components/common/AppSplashScreen';
 
 const withLayout = (element: React.ReactNode) => (
   <AppLayout>
@@ -51,6 +52,7 @@ const withLayout = (element: React.ReactNode) => (
 );
 
 function App() {
+  const [showSplash, setShowSplash] = React.useState(true);
   const location = useLocation();
 
   useEffect(() => {
@@ -62,6 +64,9 @@ function App() {
 
   return (
     <>
+      {showSplash && (
+        <AppSplashScreen onComplete={() => setShowSplash(false)} />
+      )}
       <Routes>
         {/* ── Auth (No Sidebar / Layout) ── */}
         <Route path="/login"          element={<Login />} />

@@ -7,7 +7,6 @@ import {
 import { setAuth, API_URL, getHomeRoute } from '../utils/auth';
 
 export default function Login() {
-  const [showSplash, setShowSplash] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,11 +14,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [roleHint, setRoleHint] = useState<string | null>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1600);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,33 +102,7 @@ export default function Login() {
     }
   };
 
-  // ── 1. Splash Screen ────────────────────────────────────────────────────────
-  if (showSplash) {
-    return (
-      <div className="min-h-screen bg-[#0d0f17] flex flex-col items-center justify-center relative overflow-hidden px-4">
-        <div className="absolute w-[500px] h-[500px] bg-indigo-500/15 rounded-full blur-3xl animate-pulse pointer-events-none" />
-        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '800ms' }} />
-
-        <div className="z-10 flex flex-col items-center text-center animate-fade-in">
-          <div className="w-28 h-28 rounded-full bg-surface/90 border border-indigo-500/40 shadow-2xl shadow-indigo-500/30 flex items-center justify-center mb-6 relative overflow-hidden backdrop-blur-xl p-1.5">
-            <img src="/logo.png" alt="Vishnu Wellness Centre" className="w-full h-full object-cover rounded-full drop-shadow-md" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 font-heading">
-            VISHNU WELLNESS CENTRE
-          </h1>
-          <p className="text-indigo-200/90 font-medium tracking-wide text-sm">
-            Empowering Minds. Inspiring Lives.
-          </p>
-          <div className="flex items-center gap-1.5 mt-5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs">
-            <Building2 size={13} className="text-indigo-400" />
-            <span>Sri Vishnu Educational Society</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 2. Unified Vishnu College Login Screen ───────────────────────────────────
+  // ── Unified Vishnu College Login Screen ───────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0b0d14] text-white flex flex-col items-center justify-center relative overflow-hidden px-4 py-8">
       {/* Background ambient lighting */}

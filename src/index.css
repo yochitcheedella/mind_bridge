@@ -111,5 +111,112 @@
     33% { transform: scale(1.35); opacity: 0.95; box-shadow: 0 0 60px rgba(145, 241, 255, 0.8); }
     66% { transform: scale(1.35); opacity: 0.95; box-shadow: 0 0 60px rgba(145, 241, 255, 0.8); }
   }
+
+  /* ── App Opening Cinematic Logo Animation ── */
+  @keyframes logo-reveal {
+    0% {
+      opacity: 0;
+      transform: scale(0.6) translateY(24px);
+      filter: blur(14px);
+    }
+    55% {
+      opacity: 1;
+      transform: scale(1.06) translateY(-4px);
+      filter: blur(0px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      filter: blur(0px);
+    }
+  }
+
+  @keyframes aura-expand {
+    0% {
+      transform: scale(0.7);
+      opacity: 0;
+    }
+    30% {
+      opacity: 0.75;
+    }
+    100% {
+      transform: scale(1.45);
+      opacity: 0;
+    }
+  }
+
+  @keyframes ring-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes ring-spin-reverse {
+    0% {
+      transform: rotate(360deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+
+  @keyframes text-emerge {
+    0% {
+      opacity: 0;
+      transform: translateY(16px);
+      letter-spacing: 0.2em;
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      letter-spacing: 0.05em;
+    }
+  }
+
+  @keyframes progress-load {
+    0% {
+      width: 0%;
+      opacity: 0.4;
+    }
+    60% {
+      width: 75%;
+      opacity: 1;
+    }
+    100% {
+      width: 100%;
+      opacity: 0.9;
+    }
+  }
+
+  .animate-logo-reveal {
+    animation: logo-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-aura-1 {
+    animation: aura-expand 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .animate-aura-2 {
+    animation: aura-expand 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.8s infinite;
+  }
+
+  .animate-ring-spin {
+    animation: ring-spin 14s linear infinite;
+  }
+
+  .animate-ring-spin-reverse {
+    animation: ring-spin-reverse 18s linear infinite;
+  }
+
+  .animate-text-emerge {
+    animation: text-emerge 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+
+  .animate-progress-load {
+    animation: progress-load 1.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
 }
 
