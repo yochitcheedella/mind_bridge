@@ -17,10 +17,11 @@ interface NavItem {
 
 const STUDENT_NAV: NavItem[] = [
   { path: '/student/home', icon: 'home', label: 'Dashboard' },
+  { path: '/student/appointments', icon: 'psychology', label: 'Psychologists & Counselors', badge: '7 PRO' },
   { path: '/student/chat', icon: 'smart_toy', label: 'AI Therapy Guide', badge: 'PRO' },
   { path: '/student/messages', icon: 'forum', label: 'Counselor Messages', badge: 'ANON' },
-  { path: '/student/appointments', icon: 'event', label: 'Counselor Sessions' },
   { path: '/student/cbt-reframing', icon: 'psychology', label: 'CBT Thought Studio', badge: 'NEW' },
+  { path: '/student/breathwork', icon: 'air', label: 'Calm Canopy Breathwork' },
   { path: '/student/wellness', icon: 'self_improvement', label: 'Wellness Exercises' },
   { path: '/student/sleep', icon: 'bedtime', label: 'Sleep & Mood Tracker' },
   { path: '/student/journal', icon: 'edit_note', label: 'Clinical Journal' },
