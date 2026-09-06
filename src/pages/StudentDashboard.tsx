@@ -29,6 +29,7 @@ export default function StudentDashboard() {
   });
   const [savingConsent, setSavingConsent] = useState(false);
   const [upcomingAppt, setUpcomingAppt] = useState<any | null>(null);
+  const [counselors, setCounselors] = useState<any[]>([]);
   const alias = getAlias();
 
   useEffect(() => {
@@ -70,6 +71,16 @@ export default function StudentDashboard() {
             if (confirmed) {
               setUpcomingAppt(confirmed);
             }
+          }
+        })
+        .catch(() => {});
+
+      // Fetch official wellness counsellors
+      apiFetch('/api/appointments/psychologists')
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setCounselors(data);
           }
         })
         .catch(() => {});
@@ -465,6 +476,121 @@ export default function StudentDashboard() {
           </div>
         </div>
 
+      </div>
+
+      {/* ── Official Vishnu Wellness Centre Vision, Mission & Counselors Showcase ── */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-primary/25 relative overflow-hidden bg-gradient-to-br from-surface-container-low via-surface-container to-primary/5 space-y-6 shadow-2xl">
+        {/* Subtle decorative glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-0" />
+        
+        {/* Header with official logo and badge */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-structural/60 pb-5 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full overflow-hidden p-0.5 bg-gradient-to-tr from-primary to-secondary shrink-0 shadow-lg shadow-primary/20">
+              <img 
+                src="/logo.png" 
+                alt="Vishnu Wellness Centre" 
+                className="w-full h-full rounded-full object-cover bg-surface"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-primary font-extrabold bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
+                  Sri Vishnu Educational Society • Est. 2017
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-heading font-black text-white mt-1">
+                Vishnu Wellness Centre
+              </h2>
+              <p className="text-xs text-secondary-fixed font-medium italic">
+                "Supporting Minds. Empowering Lives. ♡"
+              </p>
+            </div>
+          </div>
+          
+          <Link
+            to="/student/appointments"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-surface font-heading font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-primary/20 shrink-0 self-start md:self-auto active:scale-95"
+          >
+            <span>Meet All 7 Counselors</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        {/* Vision & Mission Highlight Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+          <div className="p-4 rounded-2xl bg-surface-container-high/60 border border-border-structural space-y-1.5">
+            <div className="flex items-center gap-2 text-primary">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider">Our Vision</span>
+            </div>
+            <p className="text-xs text-white/90 leading-relaxed">
+              To foster a campus community where every student feels supported, empowered, and equipped to thrive emotionally, personally, and academically.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-surface-container-high/60 border border-border-structural space-y-1.5">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider">Our Mission</span>
+            </div>
+            <p className="text-xs text-white/90 leading-relaxed">
+              Provide accessible, ethical, and confidential psychological support, encouraging early intervention while building safe spaces for healing.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-surface-container-high/60 border border-border-structural flex flex-col justify-between space-y-2">
+            <div>
+              <span className="text-xs font-mono text-secondary font-bold uppercase tracking-wider">Core Pillars</span>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {['Compassion', 'Confidentiality', 'Empathy', 'Integrity', 'Well-Being'].map(pillar => (
+                  <span key={pillar} className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-semibold border border-primary/25">
+                    {pillar}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <p className="text-[11px] text-on-surface-variant/90 italic">
+              7 dedicated counsellors working around the clock across all Vishnu campuses.
+            </p>
+          </div>
+        </div>
+
+        {/* Counselors Horizontal Preview Grid */}
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-heading font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
+              <span>Your Institutional Wellness Team</span>
+            </span>
+            <span className="text-[11px] text-on-surface-variant font-mono">100% Confidential • On-Campus & Online</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {counselors.map((c) => (
+              <div 
+                key={c.id}
+                onClick={() => navigate('/student/appointments')}
+                className="p-3 rounded-2xl bg-surface-container-high/40 hover:bg-surface-container-high border border-border-structural hover:border-primary/50 transition-all cursor-pointer group flex flex-col items-center text-center shadow-sm hover:shadow-lg hover:shadow-black/30"
+              >
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary/30 group-hover:border-primary group-hover:scale-105 transition-all shadow-md mb-2 bg-surface-container shrink-0">
+                  <img 
+                    src={c.avatar_url || '/logo.png'} 
+                    alt={c.name}
+                    className="w-full h-full object-cover object-top"
+                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                  />
+                </div>
+                <h4 className="text-xs font-bold text-white group-hover:text-primary transition-colors line-clamp-1 w-full">
+                  {c.name}
+                </h4>
+                <span className="text-[9px] font-medium text-on-surface-variant line-clamp-1 mt-0.5">
+                  {c.institution?.replace(/ \(.+\)/, '') || 'Vishnu'}
+                </span>
+                <span className="mt-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                  {c.experience || 'Available'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── First-Login Institutional Consent Modal ── */}
