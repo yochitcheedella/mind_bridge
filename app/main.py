@@ -157,22 +157,11 @@ async def get_clinical_pulse():
 @app.get("/download", tags=["downloads"])
 @app.get("/download-apk", tags=["downloads"])
 async def download_apk():
-    from fastapi.responses import FileResponse
-    from fastapi import HTTPException
-    candidates = [
-        "MindBridge-VIT-v1.1.apk",
-        "MindBridge-VIT.apk",
-        "android/app/build/outputs/apk/debug/app-debug.apk",
-        "uploads/MindBridge-VIT.apk"
-    ]
-    for c in candidates:
-        if os.path.isfile(c):
-            return FileResponse(
-                c,
-                media_type="application/vnd.android.package-archive",
-                filename="MindBridge-VIT.apk"
-            )
-    raise HTTPException(status_code=404, detail="APK build in progress, please check back shortly.")
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(
+        url="https://github.com/yochitcheedella/mind_bridge/releases/download/v1.2/MindBridge-VIT.apk",
+        status_code=302
+    )
 
 # ── Static SPA Frontend Serving (Full Production Deployment Ready) ─────────────
 if os.path.exists("dist"):
