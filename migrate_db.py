@@ -69,6 +69,23 @@ def migrate():
         is_postgres = engine.dialect.name == "postgresql"
 
         with engine.begin() as conn:
+            # Clean up legacy multi-tenant foreign keys if present on PostgreSQL
+            if is_postgres:
+                try:
+                    conn.execute(text("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_university_id_fkey;"))
+                except Exception as fk_err:
+                    logger.info(f"FK constraint cleanup notice: {fk_err}")
+
+                if "universities" in table_names:
+                    try:
+                        conn.execute(text("""
+                            INSERT INTO universities (id, name, is_active)
+                            VALUES (1, 'Vishnu Institute of Technology', TRUE)
+                            ON CONFLICT (id) DO NOTHING;
+                        """))
+                    except Exception as uni_err:
+                        logger.info(f"University seed notice: {uni_err}")
+
             for table, columns in MIGRATIONS.items():
                 if table in table_names:
                     existing_cols = {col["name"].lower() for col in inspector.get_columns(table)}

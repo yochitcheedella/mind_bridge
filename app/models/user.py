@@ -8,7 +8,7 @@ class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
-    university_id = Column(Integer, nullable=True, default=1)  # Default 1 (VIT standalone server)
+    university_id = Column(Integer, nullable=True, default=None)  # Nullable, standalone VIT platform
     email_hash = Column(String, unique=True, index=True)        # stored as lowercase — never displayed
     password_hash = Column(String)
 
