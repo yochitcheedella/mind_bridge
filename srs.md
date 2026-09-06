@@ -532,12 +532,13 @@ When AI detects a Critical Risk message:
 
 # 17. Technology Stack
 
-## Frontend
+## Frontend (Cross-Platform Mobile & Responsive Web)
 
-* React Native (Expo)
-* NativeWind / React Native StyleSheet
-* React Navigation v6
-* Zustand (state management)
+* React 19 + TypeScript + Vite
+* Capacitor (Android APK/AAB / iOS native container) + PWA (Workbox Service Worker offline caching)
+* Tailwind CSS with institutional color palettes, dark glassmorphism, and responsive breakpoints
+* React Router v7 with role-based authenticated routing and widescreen AppLayout drawer
+* Native Web Audio API / WebRTC for anonymous audio therapy & live counselor calls
 
 ## Backend
 

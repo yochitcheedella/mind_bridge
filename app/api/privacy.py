@@ -30,27 +30,47 @@ def export_data(student: Student = Depends(get_current_student), db: Session = D
             "risk_score": student.risk_score,
             "joined_at": student.created_at.isoformat() if student.created_at else None
         },
-        "mood_logs": [{"score": m.score, "date": m.created_at.isoformat()} for m in moods],
-        "sleep_logs": [{"hours": s.hours_slept, "quality": s.quality, "date": s.date.isoformat()} for s in sleeps],
-        "journals": [{"title": j.title, "content": j.content, "date": j.created_at.isoformat()} for j in journals],
-        "chat_history": [{"sender": c.sender, "text": c.text, "date": c.timestamp.isoformat()} for c in chats],
+        "mood_logs": [{"score": m.score, "date": m.created_at.isoformat() if m.created_at else None} for m in moods],
+        "sleep_logs": [{"hours": s.hours, "quality": s.quality, "date": s.created_at.isoformat() if s.created_at else None} for s in sleeps],
+        "journals": [{"content": j.content, "mood": j.mood, "mood_tag": j.mood_tag, "date": j.created_at.isoformat() if j.created_at else None} for j in journals],
+        "chat_history": [{"sender": c.sender, "text": c.text, "date": c.timestamp.isoformat() if c.timestamp else None} for c in chats],
         "appointments": [{"status": a.status, "date": a.slot_time.isoformat() if a.slot_time else None} for a in appointments]
     }
     
     return export_payload
 
+from app.models.habit import Habit
+from app.models.alert import RiskAlert
+from app.models.clinical import CaseNote, FollowUp, ClinicalAssessment, SOAPRecord
+from app.models.plan import AIFollowUpPlan, AIFollowUpTask
+
 @router.delete("/account")
 def delete_account(student: Student = Depends(get_current_student), db: Session = Depends(get_db)):
     """Hard delete the user account and all associated personal data."""
     if student:
-        # Note: SQLAlchemy cascade rules on the models should ideally handle this,
-        # but we explicitly delete to ensure a clean wipe if cascades aren't configured.
-        db.query(MoodLog).filter(MoodLog.student_id == student.id).delete()
-        db.query(SleepLog).filter(SleepLog.student_id == student.id).delete()
-        db.query(JournalEntry).filter(JournalEntry.student_id == student.id).delete()
-        db.query(ChatMessage).filter(ChatMessage.student_id == student.id).delete()
-        db.query(Appointment).filter(Appointment.student_id == student.id).delete()
+        sid = student.id
+        alias = student.anonymous_token
+
+        db.query(MoodLog).filter(MoodLog.student_id == sid).delete()
+        db.query(SleepLog).filter(SleepLog.student_id == sid).delete()
+        db.query(JournalEntry).filter(JournalEntry.student_id == sid).delete()
+        db.query(ChatMessage).filter(ChatMessage.student_id == sid).delete()
+        db.query(Appointment).filter(Appointment.student_id == sid).delete()
+        db.query(Habit).filter(Habit.student_id == sid).delete()
+        db.query(RiskAlert).filter(RiskAlert.student_id == sid).delete()
+        db.query(ClinicalAssessment).filter(ClinicalAssessment.student_id == sid).delete()
+
+        if alias:
+            db.query(CaseNote).filter(CaseNote.student_anonymous_id == alias).delete()
+            db.query(FollowUp).filter(FollowUp.student_anonymous_id == alias).delete()
+            db.query(SOAPRecord).filter(SOAPRecord.student_alias == alias).delete()
+
+        # Delete AI Followup Tasks then Plans
+        plans = db.query(AIFollowUpPlan).filter(AIFollowUpPlan.student_id == sid).all()
+        for p in plans:
+            db.query(AIFollowUpTask).filter(AIFollowUpTask.plan_id == p.id).delete()
+        db.query(AIFollowUpPlan).filter(AIFollowUpPlan.student_id == sid).delete()
+
         db.delete(student)
-        
-    db.commit()
+        db.commit()
     return {"status": "success", "message": "Account permanently deleted."}

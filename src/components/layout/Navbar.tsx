@@ -2,8 +2,8 @@ import { Link, useLocation } from 'react-router-dom';
 
 const STUDENT_NAV = [
   { path: '/student/home',         icon: 'home',          label: 'Home' },
+  { path: '/student/messages',     icon: 'forum',         label: 'Counselor' },
   { path: '/student/chat',         icon: 'smart_toy',     label: 'AI Guide' },
-  { path: '/student/cbt-reframing',icon: 'psychology',    label: 'CBT Suite' },
   { path: '/student/journal',      icon: 'edit_note',     label: 'Journal' },
   { path: '/student/emergency',    icon: 'emergency',     label: 'SOS', isAlert: true },
 ];

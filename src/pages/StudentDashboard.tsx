@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Sparkles, Brain, Wind, Heart, Zap, Calendar, Users, 
-  ArrowRight, CheckCircle2, ShieldAlert, TrendingUp, Award, Flame, Smile
+  Sparkles, Brain, Wind, Zap, 
+  ArrowRight, CheckCircle2, Shield, ShieldAlert, Award, Flame, Smile
 } from 'lucide-react';
 import { getAlias, apiFetch, isLoggedIn } from '../utils/auth';
 
@@ -20,10 +20,37 @@ export default function StudentDashboard() {
   const [wellnessScore, setWellnessScore] = useState(78);
   const [streakDays, setStreakDays] = useState(5);
   const [dailyChallengeComplete, setDailyChallengeComplete] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+  const [consentChecks, setConsentChecks] = useState({
+    privacy: true,
+    anonymous: true,
+    aiRole: true,
+    crisisSafety: true,
+  });
+  const [savingConsent, setSavingConsent] = useState(false);
+  const [upcomingAppt, setUpcomingAppt] = useState<any | null>(null);
   const alias = getAlias();
 
   useEffect(() => {
     if (isLoggedIn()) {
+      // Check consent
+      const localConsent = localStorage.getItem('mindbridge_consent_accepted');
+      if (!localConsent) {
+        apiFetch('/api/auth/consent/status')
+          .then(r => r.json())
+          .then(data => {
+            if (!data.has_consented) {
+              setShowConsent(true);
+            } else {
+              localStorage.setItem('mindbridge_consent_accepted', 'true');
+            }
+          })
+          .catch(() => {
+            // Default show if not verified
+            if (!localConsent) setShowConsent(true);
+          });
+      }
+
       apiFetch('/api/mood/today')
         .then(r => r.json())
         .then(data => {
@@ -33,10 +60,47 @@ export default function StudentDashboard() {
           }
         })
         .catch(() => {});
+
+      // Fetch upcoming confirmed counseling appointment
+      apiFetch('/api/appointments/mine')
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const confirmed = data.find((a: any) => a.status === 'confirmed');
+            if (confirmed) {
+              setUpcomingAppt(confirmed);
+            }
+          }
+        })
+        .catch(() => {});
     }
     const savedStreak = localStorage.getItem('mindbridge_streak_days');
     if (savedStreak) setStreakDays(parseInt(savedStreak, 10));
   }, []);
+
+  const handleAcceptConsent = async () => {
+    setSavingConsent(true);
+    try {
+      if (isLoggedIn()) {
+        await apiFetch('/api/auth/consent', {
+          method: 'POST',
+          body: JSON.stringify({
+            policy_version: 'v1.0-vishnu',
+            accepted_privacy: consentChecks.privacy,
+            accepted_anonymous_policy: consentChecks.anonymous,
+            accepted_crisis_terms: consentChecks.crisisSafety,
+          }),
+        });
+      }
+      localStorage.setItem('mindbridge_consent_accepted', 'true');
+      setShowConsent(false);
+    } catch {
+      localStorage.setItem('mindbridge_consent_accepted', 'true');
+      setShowConsent(false);
+    } finally {
+      setSavingConsent(false);
+    }
+  };
 
   const handleMoodSelect = async (score: number) => {
     setSelectedMood(score);
@@ -113,6 +177,60 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Active Counseling Appointment Reminder Banner ── */}
+      {upcomingAppt && (
+        <div className="glass-panel p-5 rounded-3xl border border-primary/35 bg-gradient-to-r from-primary/15 via-surface-container/70 to-purple-900/20 shadow-2xl animate-slide-up flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="flex items-start gap-4 z-10">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-primary/20 border border-primary/40 text-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/10">
+              <span className="text-3xl">🧠</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
+                  Appointment Reminder
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-xs font-semibold text-emerald-400">Confirmed</span>
+              </div>
+              <h3 className="text-xl font-bold font-heading text-white">{upcomingAppt.psychologist_name}</h3>
+              <p className="text-xs text-on-surface-variant font-medium">Counseling Session</p>
+              
+              <div className="flex items-center gap-2 mt-2 text-xs text-white/90 font-mono">
+                <span className="material-symbols-outlined text-[14px] text-primary">schedule</span>
+                <span>
+                  {new Date(upcomingAppt.slot_time).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} • {new Date(upcomingAppt.slot_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              <div className="mt-2.5 text-xs text-on-surface-variant flex items-center gap-1.5">
+                <span>Your identity:</span>
+                <span className="font-bold text-white bg-primary/25 px-2.5 py-0.5 rounded-lg border border-primary/35 text-[11px] tracking-wide">
+                  {upcomingAppt.student_alias || alias || 'Anonymous Student'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto z-10 shrink-0">
+            <button
+              onClick={() => navigate(`/student/messages?appointmentId=${upcomingAppt.id}`)}
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-sm border border-white/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+            >
+              <span>💬 Message Counselor</span>
+            </button>
+            <button
+              onClick={() => navigate(`/call/${upcomingAppt.id}`)}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 animate-pulse"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+              <span>🟢 Join Audio Call</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3-Column Widescreen Interactive Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -328,37 +446,6 @@ export default function StudentDashboard() {
             </button>
           </div>
 
-          {/* Live Campus Solidarity Pulse */}
-          <div className="glass-panel p-6 rounded-3xl border border-border-structural space-y-4 shadow-xl">
-            <div className="flex items-center gap-2 text-secondary-fixed text-xs font-mono font-bold uppercase tracking-wider">
-              <Users size={16} />
-              <span>VIT Campus Solidarity Pulse</span>
-            </div>
-            <div className="p-4 rounded-2xl bg-surface-container-low border border-border-structural/60 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant">Active Students Now:</span>
-                <span className="font-mono font-black text-white text-base">384 Online</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant">Reframes Today:</span>
-                <span className="font-mono font-black text-secondary-fixed text-base">1,249 Logs</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant">Average Campus Mood:</span>
-                <span className="font-mono font-bold text-emerald-400 text-sm flex items-center gap-1">
-                  <span>78 / 100</span>
-                  <TrendingUp size={14} />
-                </span>
-              </div>
-            </div>
-            <Link 
-              to="/student/community" 
-              className="block w-full text-center py-2.5 px-4 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-bold transition-colors border border-border-structural"
-            >
-              Join Peer Empathy Circles →
-            </Link>
-          </div>
-
           {/* Emergency SOS Crisis Safeguard */}
           <div className="p-6 rounded-3xl bg-gradient-to-br from-rose-950/40 via-surface-container to-red-900/20 border border-rose-500/40 text-left space-y-3 shadow-2xl">
             <div className="flex items-center gap-2 text-rose-400 font-mono font-extrabold text-xs uppercase tracking-wider">
@@ -379,6 +466,96 @@ export default function StudentDashboard() {
         </div>
 
       </div>
+
+      {/* ── First-Login Institutional Consent Modal ── */}
+      {showConsent && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#131722] border border-indigo-500/40 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl shadow-black/80 space-y-6 relative overflow-hidden">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center mx-auto text-indigo-400">
+              <Shield size={28} />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h2 className="text-xl sm:text-2xl font-black text-white font-heading">
+                Welcome to MindBridge
+              </h2>
+              <p className="text-xs text-indigo-200/80">
+                Vishnu College Institutional Student Safeguard & Privacy Terms
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs text-white/90 bg-white/5 p-4 rounded-2xl border border-white/10">
+              <p className="font-semibold text-white/70 uppercase tracking-wider text-[11px] mb-2 font-mono">
+                Please review before you continue:
+              </p>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentChecks.privacy}
+                  onChange={e => setConsentChecks({ ...consentChecks, privacy: e.target.checked })}
+                  className="mt-0.5 rounded text-indigo-500 focus:ring-indigo-400 bg-white/10 border-white/20"
+                />
+                <span>I understand how my information is encrypted and securely protected.</span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentChecks.anonymous}
+                  onChange={e => setConsentChecks({ ...consentChecks, anonymous: e.target.checked })}
+                  className="mt-0.5 rounded text-indigo-500 focus:ring-indigo-400 bg-white/10 border-white/20"
+                />
+                <span>I understand the anonymous support option and public alias protection.</span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentChecks.aiRole}
+                  onChange={e => setConsentChecks({ ...consentChecks, aiRole: e.target.checked })}
+                  className="mt-0.5 rounded text-indigo-500 focus:ring-indigo-400 bg-white/10 border-white/20"
+                />
+                <span>I understand that the AI companion is an emotional support assistant, not a licensed therapist.</span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentChecks.crisisSafety}
+                  onChange={e => setConsentChecks({ ...consentChecks, crisisSafety: e.target.checked })}
+                  className="mt-0.5 rounded text-indigo-500 focus:ring-indigo-400 bg-white/10 border-white/20"
+                />
+                <span>I understand that acute safety emergencies may require audited institutional human intervention.</span>
+              </label>
+            </div>
+
+            <button
+              onClick={handleAcceptConsent}
+              disabled={
+                savingConsent ||
+                !consentChecks.privacy ||
+                !consentChecks.anonymous ||
+                !consentChecks.aiRole ||
+                !consentChecks.crisisSafety
+              }
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-600 hover:from-indigo-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            >
+              {savingConsent ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Recording Consent...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={18} />
+                  <span>Acknowledge & Continue to Dashboard</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

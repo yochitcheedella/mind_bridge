@@ -23,8 +23,9 @@ MindBridge AI is an AI-powered mobile application built exclusively for **Vishnu
 - **Resilient Multi-Role Storage Engine:** Document and avatar file upload architecture with primary cloud blob support and seamless automatic fallback to local high-speed server storage (`/uploads`).
 
 ## 4. Non-Functional Requirements
-- **Performance:** API responses < 2 seconds; AI responses < 3 seconds on mobile networks.
-- **Security & Accountability:** FERPA/HIPAA-aligned data handling — AES-256 identity encryption at rest, immutable database audit logging for anonymity breaks, zero-PII admin dashboards, and JWT RBAC authentication.
-- **Availability:** 99.9% uptime on VIT's institutional server infrastructure with thread-safe WebSocket event loop bridging (`AlertManager`).
-- **Platform:** **Mobile Application** — Android (5.0+) and iOS (13+). No desktop or browser-only support required.
-- **Privacy:** Student real identities are never exposed to psychologists or administrators during standard operations; identity de-anonymization is permitted strictly during documented emergency interventions.
+- **Performance:** API responses < 2 seconds; AI responses < 3 seconds on campus and mobile networks.
+- **Security & Accountability:** FERPA/HIPAA-aligned data handling — AES-256 identity encryption at rest, PostgreSQL Row Level Security (RLS), immutable database audit logging for anonymity breaks, zero-PII admin dashboards, and JWT RBAC authentication.
+- **Availability:** 99.9% uptime on Vishnu College's institutional cloud & serverless infrastructure with real-time WebSocket and FCM alert dispatch.
+- **Platform:** **Cross-Platform Institutional Product** — Android APK/AAB (Capacitor/Flutter) + Responsive Web Portal (React + Vite hosted on Vercel).
+- **Privacy:** Student real identities are never exposed to psychologists or administrators during standard operations; identity de-anonymization is permitted strictly during documented emergency interventions with mandatory reason logging in `identity_reveal_logs`.
+

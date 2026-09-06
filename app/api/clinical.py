@@ -12,10 +12,13 @@ from app.core.deps import get_current_user_any_role as get_current_user
 router = APIRouter(prefix="/api/clinical", tags=["clinical-ehr"])
 
 class AssessmentSubmitRequest(BaseModel):
-    test_type: str
+    test_type: Optional[str] = None
+    assessment_type: Optional[str] = None
     score: int
-    severity_label: str
+    severity_label: Optional[str] = None
+    severity: Optional[str] = None
     answers: Optional[Dict[str, Any]] = None
+    responses: Optional[Dict[str, Any]] = None
 
 class SOAPNoteSubmitRequest(BaseModel):
     student_alias: str
@@ -27,6 +30,7 @@ class SOAPNoteSubmitRequest(BaseModel):
 
 
 @router.post("/assessments", status_code=status.HTTP_201_CREATED)
+@router.post("/assessment", status_code=status.HTTP_201_CREATED)
 async def create_assessment(
     req: AssessmentSubmitRequest,
     current_user: dict = Depends(get_current_user),
@@ -38,31 +42,36 @@ async def create_assessment(
     """
     student_id = current_user.get("user_id") if current_user.get("role") == "student" else None
 
+    t_type = (req.test_type or req.assessment_type or "phq9").lower()
+    s_label = req.severity_label or req.severity or "Minimal"
+    ans = req.answers or req.responses
+
     assessment_record = ClinicalAssessment(
         student_id=student_id,
-        test_type=req.test_type,
+        test_type=t_type,
         score=req.score,
-        severity_label=req.severity_label,
-        answers_json=json.dumps(req.answers) if req.answers else None
+        severity_label=s_label,
+        answers_json=json.dumps(ans) if ans else None
     )
     db.add(assessment_record)
 
     # Elevate student risk score if severity reaches clinical concern
-    if student_id and req.test_type in ["phq9", "gad7", "burnout"]:
+    if student_id and t_type in ["phq9", "gad7", "burnout", "mbi-s", "mbi"]:
         student = db.query(Student).filter(Student.id == student_id).first()
         if student:
-            if "Severe" in req.severity_label or "Critical" in req.severity_label:
+            if "Severe" in s_label or "Critical" in s_label:
                 student.risk_score = max(student.risk_score or 0.0, 0.75)
-            elif "Moderate" in req.severity_label:
+            elif "Moderate" in s_label:
                 student.risk_score = max(student.risk_score or 0.0, 0.45)
             db.add(student)
 
     db.commit()
     db.refresh(assessment_record)
-    return {"status": "success", "id": assessment_record.id, "severity_label": req.severity_label}
+    return {"status": "success", "id": assessment_record.id, "severity_label": s_label}
 
 
 @router.get("/assessments")
+@router.get("/assessment")
 async def get_my_assessments(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -90,6 +99,7 @@ async def get_my_assessments(
 
 
 @router.post("/soap-notes", status_code=status.HTTP_201_CREATED)
+@router.post("/soap", status_code=status.HTTP_201_CREATED)
 async def save_soap_note(
     req: SOAPNoteSubmitRequest,
     current_user: dict = Depends(get_current_user),
@@ -113,7 +123,7 @@ async def save_soap_note(
     db.add(soap_entry)
 
     # Adjust student risk indicator based on clinician judgment
-    student = db.query(Student).filter(Student.alias == req.student_alias).first()
+    student = db.query(Student).filter(Student.anonymous_token == req.student_alias).first()
     if student:
         if req.risk_level == "Critical":
             student.risk_score = max(student.risk_score or 0.0, 0.9)
@@ -127,6 +137,7 @@ async def save_soap_note(
 
 
 @router.get("/soap-notes")
+@router.get("/soap")
 async def get_soap_notes(
     student_alias: Optional[str] = None,
     current_user: dict = Depends(get_current_user),

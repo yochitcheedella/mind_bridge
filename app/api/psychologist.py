@@ -9,9 +9,11 @@ from app.core.database import get_db
 from app.models.user import Student
 from app.models.chat import ChatMessage
 from app.models.mood import MoodLog
+from app.models.journal import JournalEntry
 from app.models.clinical import CaseNote, FollowUp
 from app.models.audit import AuditLog
 from app.models.alert import RiskAlert
+from app.models.appointment import Appointment
 from app.api.chat import manager
 
 router = APIRouter(prefix="/api/psychologist", tags=["psychologist"])
@@ -27,13 +29,31 @@ class FollowUpRequest(BaseModel):
     reason: Optional[str] = None
 
 
+import urllib.parse
+
+def _find_student_by_alias(db: Session, anonymous_id: str) -> Optional[Student]:
+    """Find student by exact alias, decoded alias, or prefix match if fragment truncated."""
+    if not anonymous_id:
+        return None
+    clean = urllib.parse.unquote(anonymous_id).strip()
+    student = db.query(Student).filter(Student.anonymous_token == clean).first()
+    if student:
+        return student
+    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    if student:
+        return student
+    # If the alias had a '#' character that was stripped by URL fragment parsing, match prefix
+    student = db.query(Student).filter(Student.anonymous_token.ilike(f"{clean}%")).first()
+    return student
+
+
 @router.get("/student/{anonymous_id}")
 def get_student_case_details(anonymous_id: str, db: Session = Depends(get_db)):
     """
-    Retrieves the case summary, mood logs, and chat history for a given anonymous student.
+    Retrieves the case summary, mood logs, shared journals, and chat history for a given anonymous student.
     Strictly excludes PII (real email, name, etc.).
     """
-    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    student = _find_student_by_alias(db, anonymous_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
@@ -41,8 +61,20 @@ def get_student_case_details(anonymous_id: str, db: Session = Depends(get_db)):
     mood_logs = (
         db.query(MoodLog)
         .filter(MoodLog.student_id == student.id)
-        .order_by(MoodLog.timestamp.desc())
+        .order_by(MoodLog.created_at.desc())
         .limit(10)
+        .all()
+    )
+
+    # Fetch shared journal entries
+    shared_journals = (
+        db.query(JournalEntry)
+        .filter(
+            JournalEntry.student_id == student.id,
+            JournalEntry.is_shared_with_counselor == True
+        )
+        .order_by(JournalEntry.created_at.desc())
+        .limit(15)
         .all()
     )
 
@@ -56,27 +88,52 @@ def get_student_case_details(anonymous_id: str, db: Session = Depends(get_db)):
     )
     chat_history.reverse() # Chronological order
 
+    # Fetch active appointment if any
+    appt = db.query(Appointment).filter(Appointment.student_id == student.id).order_by(Appointment.created_at.desc()).first()
+
+    # Determine MindBridge AI Clinical Concern Level
+    r_score = student.risk_score or 0.0
+    if r_score >= 0.7:
+        clinical_concern_level = "high_concern"
+    elif r_score >= 0.35:
+        clinical_concern_level = "elevated"
+    else:
+        clinical_concern_level = "low"
+
     return {
         "student": {
             "anonymous_id": student.anonymous_token,
             "department": student.department,
             "year": student.year,
             "risk_score": student.risk_score,
+            "clinical_concern_level": clinical_concern_level,
             "created_at": student.created_at.isoformat() if student.created_at else None,
         },
+        "active_appointment_id": appt.id if appt else None,
         "mood_logs": [
             {
                 "score": log.score,
                 "note": log.note,
-                "timestamp": log.timestamp.isoformat()
+                "timestamp": log.created_at.isoformat() if log.created_at else None
             } for log in mood_logs
+        ],
+        "shared_journals": [
+            {
+                "id": j.id,
+                "entry_date": j.entry_date or (j.created_at.strftime("%Y-%m-%d") if j.created_at else None),
+                "content": j.content,
+                "mood": j.mood,
+                "mood_tag": j.mood_tag,
+                "word_count": j.word_count,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            } for j in shared_journals
         ],
         "chat_history": [
             {
                 "id": str(msg.id),
                 "sender": msg.sender,
                 "text": msg.text,
-                "timestamp": msg.timestamp.isoformat(),
+                "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
                 "risk_score": msg.sentiment_score
             } for msg in chat_history
         ]
@@ -87,7 +144,7 @@ async def send_counselor_message(anonymous_id: str, req: ChatMessageRequest, db:
     """
     Sends an anonymous message from the psychologist to the student.
     """
-    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    student = _find_student_by_alias(db, anonymous_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
@@ -129,7 +186,7 @@ async def send_counselor_message(anonymous_id: str, req: ChatMessageRequest, db:
 @router.post("/student/{anonymous_id}/resolve")
 def resolve_student_case(anonymous_id: str, db: Session = Depends(get_db)):
     """Resolves the case by resetting the student's risk score to a baseline (0.0) and resolving active SOS/risk alerts."""
-    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    student = _find_student_by_alias(db, anonymous_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
@@ -204,7 +261,7 @@ def set_followup(anonymous_id: str, req: FollowUpRequest, db: Session = Depends(
     
     # Push Notification to Student Device
     from app.services.notifications import send_push_notification
-    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    student = _find_student_by_alias(db, anonymous_id)
     if student and student.fcm_token:
         send_push_notification(
             title="MindBridge - Follow Up Scheduled",
@@ -234,7 +291,7 @@ class IdentityRequestPayload(BaseModel):
 @router.post("/student/{anonymous_id}/request-identity")
 def request_student_identity(anonymous_id: str, req: IdentityRequestPayload, db: Session = Depends(get_db)):
     """Request the real identity of a student in a life-threatening emergency."""
-    student = db.query(Student).filter(Student.anonymous_token == anonymous_id).first()
+    student = _find_student_by_alias(db, anonymous_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getAlias, getAuth, apiFetch } from '../utils/auth';
+import { getAlias, getAuth, apiFetch, getWsBaseUrl } from '../utils/auth';
 
 interface ChatMessage {
   id: string;
@@ -91,11 +91,7 @@ export default function AIChat() {
     }
     
     setWsStatus('connecting');
-    let wsBaseUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000';
-    if (wsBaseUrl.includes('localhost')) {
-      wsBaseUrl = wsBaseUrl.replace('localhost', '127.0.0.1');
-    }
-    const ws = new WebSocket(`${wsBaseUrl}/api/chat/ws?token=${auth.access_token}`);
+    const ws = new WebSocket(`${getWsBaseUrl()}/api/chat/ws?token=${auth.access_token}`);
 
     ws.onopen = () => { setWsStatus('connected'); setIsTyping(false); };
     ws.onclose = () => { setWsStatus('disconnected'); };
@@ -156,21 +152,48 @@ export default function AIChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = () => {
-    if (!inputMessage.trim()) return;
+  const handleSend = async () => {
+    const textToSend = inputMessage.trim();
+    if (!textToSend) return;
     const msg: ChatMessage = {
       id: Date.now().toString(),
       sender: 'user',
-      text: inputMessage.trim(),
+      text: textToSend,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, msg]);
+    setInputMessage('');
+    setIsTyping(true);
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      setIsTyping(true);
-      wsRef.current.send(JSON.stringify({ text: inputMessage.trim(), language }));
+      wsRef.current.send(JSON.stringify({ text: textToSend, language }));
+    } else {
+      // Robust REST Fallback
+      try {
+        const res = await apiFetch('/api/chat/message', {
+          method: 'POST',
+          body: JSON.stringify({ message: textToSend, language }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const replyText = data.text || data.response || data.reply || '';
+          setMessages(prev => [...prev, {
+            id: `${Date.now()}-${Math.random()}`,
+            sender: 'ai',
+            text: replyText,
+            timestamp: new Date(),
+            risk_level: data.risk_level || 'green',
+            risk_score: data.risk_score || 0.1,
+          }]);
+          if (data.risk_level) setCurrentRisk(data.risk_level);
+          if (!isSpeaking) speakText(replyText);
+        }
+      } catch (err) {
+        console.error('REST Chat Fallback error', err);
+      } finally {
+        setIsTyping(false);
+      }
     }
-    setInputMessage('');
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

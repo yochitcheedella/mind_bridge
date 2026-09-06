@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle, Info, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { apiFetch } from '../utils/auth';
@@ -10,9 +11,11 @@ interface Notification {
   message: string;
   is_read: boolean;
   type: 'info' | 'success' | 'warning' | 'error';
+  appointment_id?: number;
 }
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -98,14 +101,25 @@ export default function Notifications() {
                   </h3>
                   <p className="text-sm text-text-muted mt-1">{n.message}</p>
                 </div>
-                {!n.is_read && (
-                  <button 
-                    onClick={() => markAsRead(n.id)}
-                    className="text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    Mark Read
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {n.appointment_id && (
+                    <button
+                      onClick={() => navigate(`/call/${n.appointment_id}`)}
+                      className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 animate-pulse"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>Join Call</span>
+                    </button>
+                  )}
+                  {!n.is_read && (
+                    <button 
+                      onClick={() => markAsRead(n.id)}
+                      className="text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Mark Read
+                    </button>
+                  )}
+                </div>
               </div>
             </Card>
           ))}

@@ -9,7 +9,7 @@ from app.models.user import Student
 from app.models.plan import AIFollowUpPlan, AIFollowUpTask
 from app.core.ai_service import generate_recovery_plan
 
-router = APIRouter(prefix="/api/plans", tags=["plans"])
+router = APIRouter(tags=["plans"])
 
 @router.post("/generate")
 async def generate_plan(
@@ -79,6 +79,7 @@ async def generate_plan(
     }
 
 
+@router.get("")
 @router.get("/active")
 def get_active_plan(
     student: Student = Depends(get_current_student),

@@ -1,436 +1,308 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { BookOpen, PenLine, Tag, Trash2, CheckCircle2, Clock, ArrowLeft, Heart, Sparkles, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Lock, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
 import { apiFetch } from '../utils/auth';
+import JournalCalendar, { type CalendarDay } from '../components/journal/JournalCalendar';
+import DiaryPage, { type DiaryEntry } from '../components/journal/DiaryPage';
+import PastEntries from '../components/journal/PastEntries';
+import JournalStats from '../components/journal/JournalStats';
 
-interface AIInsight { summary: string; patterns: string[]; advice: string; }
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-interface JournalEntry { id: number; content: string; mood_tag: string | null; created_at: string; }
+function getToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
-const MOOD_TAGS = [
-  { id: 'academic',       label: '📚 Academic',      color: 'bg-primary/20 text-primary border-primary/30' },
-  { id: 'relationships',  label: '💛 Relationships',  color: 'bg-warning/20 text-warning border-warning/30' },
-  { id: 'family',         label: '🏠 Family',         color: 'bg-success/20 text-success border-success/30' },
-  { id: 'finance',        label: '💰 Finance',        color: 'bg-text-muted/20 text-text-muted border-text-muted/30' },
-  { id: 'health',         label: '❤️ Health',         color: 'bg-error/20 text-error border-error/30' },
-  { id: 'career',         label: '🎯 Career',         color: 'bg-purple-400/20 text-purple-300 border-purple-400/30' },
-];
+function toMonthStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
 
-const tagConfig = (id: string | null) => MOOD_TAGS.find(t => t.id === id);
+function toDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// ── Page Component ────────────────────────────────────────────────────────────
 
 export default function Journal() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'journal' | 'gratitude'>('journal');
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [content, setContent] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const today = getToday();
 
-  // AI Insight state
-  const [insight, setInsight] = useState<AIInsight | null>(null);
-  const [loadingInsight, setLoadingInsight] = useState(false);
+  // Core state
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [currentMonth, setCurrentMonth] = useState<Date>(
+    new Date(today.getFullYear(), today.getMonth(), 1),
+  );
+  const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
+  const [entriesForDate, setEntriesForDate] = useState<DiaryEntry[]>([]);
+  const [entryLoading, setEntryLoading] = useState(true);
 
-  // Gratitude state
-  const [gratitude1, setGratitude1] = useState('');
-  const [gratitude2, setGratitude2] = useState('');
-  const [gratitude3, setGratitude3] = useState('');
-  const [gratitudeSaving, setGratitudeSaving] = useState(false);
-  const [gratitudeSaved, setGratitudeSaved] = useState(false);
-  
-  // Date filtering state
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Re-render keys — bumped after saves/deletes to refresh child components
+  const [statsKey, setStatsKey] = useState(0);
+  const [pastKey, setPastKey] = useState(0);
 
-  const gratitudeEntriesAll = entries.filter(e => e.mood_tag === 'gratitude');
-  const gratitudeEntries = selectedDate 
-    ? gratitudeEntriesAll.filter(e => new Date(e.created_at).toDateString() === selectedDate.toDateString())
-    : gratitudeEntriesAll;
+  // Mobile: past entries panel toggle
+  const [showPast, setShowPast] = useState(false);
 
-  useEffect(() => {
-    apiFetch('/api/journal/entries')
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setEntries(data); })
-      .finally(() => setLoading(false));
+  // ── Data fetching ─────────────────────────────────────────────────────────
+
+  const loadCalendar = useCallback(async (month: Date) => {
+    try {
+      const res = await apiFetch(`/api/journal/calendar?month=${toMonthStr(month)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.days)) setCalendarData(data.days);
+      }
+    } catch {
+      // non-blocking
+    }
   }, []);
 
-  const handleSave = async () => {
-    if (!content.trim()) return;
-    setSaving(true);
+  const loadEntriesForDate = useCallback(async (date: Date) => {
+    setEntryLoading(true);
+    setEntriesForDate([]);
     try {
-      const res = await apiFetch('/api/journal/entry', {
-        method: 'POST',
-        body: JSON.stringify({ content: content.trim(), mood_tag: selectedTag }),
-      });
+      const res = await apiFetch(`/api/journal/date/${toDateStr(date)}`);
       if (res.ok) {
-        const newEntry = await res.json();
-        setEntries(prev => [newEntry, ...prev]);
-        setContent('');
-        setSelectedTag(null);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        const data = await res.json();
+        if (Array.isArray(data.entries)) {
+          setEntriesForDate(data.entries as DiaryEntry[]);
+        } else if (data.has_entry && data.entry) {
+          setEntriesForDate([data.entry as DiaryEntry]);
+        } else {
+          setEntriesForDate([]);
+        }
       }
+    } catch {
+      setEntriesForDate([]);
     } finally {
-      setSaving(false);
+      setEntryLoading(false);
     }
-  };
+  }, []);
 
-  const handleGratitudeSave = async () => {
-    const lines = [gratitude1, gratitude2, gratitude3].filter(l => l.trim());
-    if (lines.length === 0) return;
-    setGratitudeSaving(true);
-    try {
-      const res = await apiFetch('/api/journal/entry', {
-        method: 'POST',
-        body: JSON.stringify({
-          content: lines.map((l, i) => `${i + 1}. ${l.trim()}`).join('\n'),
-          mood_tag: 'gratitude',
-        }),
+  // Initial load on mount
+  useEffect(() => {
+    loadCalendar(currentMonth);
+    loadEntriesForDate(today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Event handlers ─────────────────────────────────────────────────────────
+
+  /** User clicks a day on the calendar */
+  const handleDateSelect = useCallback(
+    (date: Date) => {
+      setSelectedDate(date);
+      loadEntriesForDate(date);
+
+      // If the clicked date belongs to a different month, update the calendar view
+      if (
+        date.getMonth() !== currentMonth.getMonth() ||
+        date.getFullYear() !== currentMonth.getFullYear()
+      ) {
+        const newMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        setCurrentMonth(newMonth);
+        loadCalendar(newMonth);
+      }
+    },
+    [currentMonth, loadCalendar, loadEntriesForDate],
+  );
+
+  /** User navigates the calendar month */
+  const handleMonthChange = useCallback(
+    (month: Date) => {
+      setCurrentMonth(month);
+      loadCalendar(month);
+    },
+    [loadCalendar],
+  );
+
+  /** DiaryPage calls this after a successful save */
+  const handleSaved = useCallback(
+    (savedEntry: DiaryEntry) => {
+      setEntriesForDate(prev => {
+        const existingIdx = prev.findIndex(e => e.id === savedEntry.id);
+        if (existingIdx >= 0) {
+          const updated = [...prev];
+          updated[existingIdx] = savedEntry;
+          return updated;
+        }
+        return [...prev, savedEntry];
       });
-      if (res.ok) {
-        const newEntry = await res.json();
-        setEntries(prev => [newEntry, ...prev]);
-        setGratitude1(''); setGratitude2(''); setGratitude3('');
-        setGratitudeSaved(true);
-        setTimeout(() => setGratitudeSaved(false), 3000);
-      }
-    } finally { setGratitudeSaving(false); }
-  };
 
-  const filteredByTag = filterTag ? entries.filter(e => e.mood_tag === filterTag && e.mood_tag !== 'gratitude') : entries.filter(e => e.mood_tag !== 'gratitude');
-  const filtered = selectedDate
-    ? filteredByTag.filter(e => new Date(e.created_at).toDateString() === selectedDate.toDateString())
-    : filteredByTag;
+      // Optimistically update calendar marker for this date
+      const dateStr = toDateStr(selectedDate);
+      setCalendarData(prev => {
+        const existing = prev.find(d => d.date === dateStr);
+        if (existing) {
+          return prev.map(d =>
+            d.date === dateStr
+              ? { ...d, has_entry: true, has_mood: d.has_mood || !!savedEntry.mood }
+              : d,
+          );
+        }
+        return [
+          ...prev,
+          {
+            date: dateStr,
+            has_entry: true,
+            has_mood: !!savedEntry.mood,
+            mood: savedEntry.mood,
+          },
+        ];
+      });
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this entry?")) return;
-    try {
-      const res = await apiFetch(`/api/journal/entry/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setEntries(prev => prev.filter(e => e.id !== id));
-      }
-    } catch (e) {
-      console.error("Failed to delete entry:", e);
-    }
-  };
+      setStatsKey(k => k + 1);
+      setPastKey(k => k + 1);
+    },
+    [selectedDate],
+  );
 
-  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+  /** DiaryPage calls this after a successful delete */
+  const handleDeleted = useCallback(
+    (deletedId?: number) => {
+      setEntriesForDate(prev => {
+        const updated = deletedId ? prev.filter(e => e.id !== deletedId) : [];
+        if (updated.length === 0) {
+          const dateStr = toDateStr(selectedDate);
+          setCalendarData(cPrev => cPrev.filter(d => d.date !== dateStr));
+        }
+        return updated;
+      });
 
-  const renderCalendar = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    
-    const days = [];
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-8"></div>);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(year, month, i);
-      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
-      const hasEntry = entries.some(e => new Date(e.created_at).toDateString() === date.toDateString());
-      
-      days.push(
-        <button
-          key={`day-${i}`}
-          onClick={() => setSelectedDate(isSelected ? null : date)}
-          className={`h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
-            ${isSelected ? 'bg-primary text-white shadow-md' 
-              : hasEntry ? 'bg-primary/20 text-primary font-bold border border-primary/30' 
-              : 'text-text hover:bg-surface-bright'}`}
-        >
-          {i}
-        </button>
-      );
-    }
+      setStatsKey(k => k + 1);
+      setPastKey(k => k + 1);
+    },
+    [selectedDate],
+  );
 
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-    return (
-      <Card className="p-4 mb-4 animate-fade-in">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-heading font-semibold text-sm flex items-center gap-2">
-            <CalendarIcon size={16} className="text-primary" /> {monthNames[month]} {year}
-          </h3>
-          <div className="flex gap-1">
-            <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} className="p-1 rounded hover:bg-surface-bright text-text-muted hover:text-text"><ChevronLeft size={16}/></button>
-            <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} className="p-1 rounded hover:bg-surface-bright text-text-muted hover:text-text"><ChevronRight size={16}/></button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-1 text-center mb-2">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d} className="text-[10px] text-text-muted font-semibold uppercase">{d}</div>)}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {days}
-        </div>
-      </Card>
-    );
-  };
-
-  const fetchInsights = async () => {
-    setLoadingInsight(true);
-    try {
-      const res = await apiFetch('/api/journal/insights');
-      if (res.ok) setInsight(await res.json());
-    } finally {
-      setLoadingInsight(false);
-    }
-  };
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-surface-dim/80 backdrop-blur-xl border-b border-border px-5 py-4">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} aria-label="Go back"
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface border border-border text-text-muted hover:text-text hover:bg-surface-bright transition-all shrink-0">
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="font-heading font-bold text-lg flex items-center gap-2">
-              <BookOpen size={18} className="text-primary" /> My Journal
-            </h1>
-            <p className="text-xs text-text-muted mt-0.5">{entries.length} private entries • End-to-end encrypted</p>
+    <div className="min-h-screen bg-background pb-24 lg:pb-6">
+
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-20 bg-surface-dim/80 backdrop-blur-xl border-b border-border-structural px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-surface border border-border-structural text-text-muted hover:text-text hover:bg-surface-bright transition-all shrink-0"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <h1 className="font-heading font-bold text-base flex items-center gap-2 text-text leading-tight">
+                <BookOpen size={16} className="text-interactive-primary shrink-0" />
+                My Diary
+              </h1>
+              <p className="text-[10px] text-text-muted">Your private digital diary</p>
+            </div>
+          </div>
+
+          {/* Privacy badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+            <Lock size={11} className="text-emerald-400" />
+            <span className="text-[10px] font-semibold text-emerald-400 hidden sm:inline">
+              Private Journal
+            </span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-5 py-6 space-y-6 animate-fade-in">
-        {/* Tab switcher */}
-        <div className="flex bg-surface-bright rounded-xl p-1 gap-1">
-          <button onClick={() => setActiveTab('journal')}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5
-              ${activeTab === 'journal' ? 'bg-surface-dim text-primary shadow-sm' : 'text-text-muted hover:text-text'}`}>
-            <BookOpen size={15} /> Journal
-          </button>
-          <button onClick={() => setActiveTab('gratitude')}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5
-              ${activeTab === 'gratitude' ? 'bg-surface-dim text-primary shadow-sm' : 'text-text-muted hover:text-text'}`}>
-            <Heart size={15} /> Gratitude
-          </button>
+      {/* ── Main Content ── */}
+      <main className="max-w-7xl mx-auto px-4 pt-5">
+
+        {/* Stats banner */}
+        <div className="mb-5">
+          <JournalStats refreshKey={statsKey} />
         </div>
 
-        {/* Gratitude tab */}
-        {activeTab === 'gratitude' && (
-          <>
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Heart size={18} className="text-primary" />
-                <h2 className="font-heading font-semibold">3 Gratitudes for Today</h2>
-              </div>
-              <p className="text-xs text-text-muted mb-4">Name three things you're grateful for right now — big or small.</p>
-              <div className="space-y-3 mb-4">
-                {[{id: '1', val: gratitude1, set: setGratitude1}, {id: '2', val: gratitude2, set: setGratitude2}, {id: '3', val: gratitude3, set: setGratitude3}].map(({id, val, set}) => (
-                  <div key={id} className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">{id}</span>
-                    <input
-                      value={val}
-                      onChange={e => set(e.target.value)}
-                      placeholder={`I'm grateful for…`}
-                      className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-              <button onClick={handleGratitudeSave} disabled={gratitudeSaving || (!gratitude1.trim() && !gratitude2.trim() && !gratitude3.trim())}
-                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2
-                  ${gratitudeSaved ? 'bg-success/20 text-success border border-success/30'
-                    : (!gratitude1.trim() && !gratitude2.trim() && !gratitude3.trim()) ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
-                    : 'bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/20'}`}>
-                {gratitudeSaved ? <><CheckCircle2 size={16} /> Saved!</>
-                  : gratitudeSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-                  : <><Heart size={16} /> Save Gratitudes</>}
-              </button>
-            </Card>
+        {/* ── Desktop: 3-column grid ── */}
+        <div className="hidden lg:grid lg:grid-cols-[300px_1fr_272px] gap-5 items-start">
 
-            {gratitudeEntriesAll.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Past Gratitudes</h2>
-                  {selectedDate && (
-                    <button onClick={() => setSelectedDate(null)} className="text-primary hover:underline text-[10px]">
-                      Clear Filter
-                    </button>
-                  )}
-                </div>
-                {renderCalendar()}
-                <div className="space-y-3">
-                  {gratitudeEntries.slice(0, 5).map(entry => (
-                    <Card key={entry.id} className="p-4 group relative">
-                      <button onClick={() => handleDelete(entry.id)} className="absolute top-4 right-4 p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all">
-                        <Trash2 size={14} />
-                      </button>
-                      <div className="flex items-center gap-1.5 text-xs text-text-muted mb-2">
-                        <Clock size={11} />
-                        {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <p className="text-sm text-text leading-relaxed whitespace-pre-line">{entry.content}</p>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        )}
+          {/* Column 1 — Calendar */}
+          <div className="sticky top-[73px]">
+            <JournalCalendar
+              currentMonth={currentMonth}
+              selectedDate={selectedDate}
+              calendarData={calendarData}
+              onDateSelect={handleDateSelect}
+              onMonthChange={handleMonthChange}
+            />
+          </div>
 
-        {/* Journal tab */}
-        {activeTab === 'journal' && <>
-        {/* New Entry */}
-        <Card className="p-5">
-          <h2 className="font-heading font-semibold mb-3 flex items-center gap-2">
-            <PenLine size={16} className="text-primary" /> New Entry
-          </h2>
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="What's on your mind today? Write freely — this is your private space..."
-            rows={4}
-            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary/50 focus:bg-surface-bright resize-none transition-all mb-4"
+          {/* Column 2 — Diary Page */}
+          <div>
+            <DiaryPage
+              date={selectedDate}
+              entries={entriesForDate}
+              loading={entryLoading}
+              onSaved={handleSaved}
+              onDeleted={handleDeleted}
+            />
+          </div>
+
+          {/* Column 3 — Past Entries (sticky, scrollable) */}
+          <div
+            className="sticky top-[73px]"
+            style={{ height: 'calc(100vh - 90px)' }}
+          >
+            <PastEntries
+              onSelectDate={handleDateSelect}
+              selectedDate={selectedDate}
+              refreshKey={pastKey}
+            />
+          </div>
+        </div>
+
+        {/* ── Mobile / Tablet: single-column ── */}
+        <div className="lg:hidden space-y-4">
+
+          {/* Calendar */}
+          <JournalCalendar
+            currentMonth={currentMonth}
+            selectedDate={selectedDate}
+            calendarData={calendarData}
+            onDateSelect={handleDateSelect}
+            onMonthChange={handleMonthChange}
           />
 
-          {/* Mood Tags */}
-          <div className="mb-4">
-            <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Tag size={11} /> Tag this entry (optional)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {MOOD_TAGS.map(tag => (
-                <button key={tag.id} onClick={() => setSelectedTag(selectedTag === tag.id ? null : tag.id)}
-                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all
-                    ${selectedTag === tag.id ? tag.color + ' scale-105' : 'bg-surface border-border text-text-muted hover:border-primary/30'}`}>
-                  {tag.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Diary page */}
+          <DiaryPage
+            date={selectedDate}
+            entries={entriesForDate}
+            loading={entryLoading}
+            onSaved={handleSaved}
+            onDeleted={handleDeleted}
+          />
 
-          <button onClick={handleSave} disabled={saving || !content.trim()}
-            className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2
-              ${saved ? 'bg-success/20 text-success border border-success/30'
-                : !content.trim() ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
-                : 'bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/20'}`}>
-            {saved ? <><CheckCircle2 size={16} /> Saved!</>
-              : saving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-              : <><PenLine size={16} /> Save Entry</>}
+          {/* Collapsible past entries */}
+          <button
+            id="toggle-past-entries-btn"
+            onClick={() => setShowPast(p => !p)}
+            className="w-full py-3 rounded-xl border border-border-structural bg-surface hover:bg-surface-bright text-text-muted hover:text-text text-sm font-semibold transition-all flex items-center justify-center gap-2"
+          >
+            <BookOpen size={15} />
+            Past Entries
+            {showPast ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-        </Card>
 
-        {/* Filter Tabs */}
-        {entries.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <button onClick={() => setFilterTag(null)}
-              className={`text-xs px-3 py-1.5 rounded-full border font-medium whitespace-nowrap transition-all
-                ${!filterTag ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface border-border text-text-muted hover:border-primary/30'}`}>
-              All ({entries.length})
-            </button>
-            {MOOD_TAGS.filter(t => entries.some(e => e.mood_tag === t.id)).map(tag => (
-              <button key={tag.id} onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)}
-                className={`text-xs px-3 py-1.5 rounded-full border font-medium whitespace-nowrap transition-all
-                  ${filterTag === tag.id ? tag.color : 'bg-surface border-border text-text-muted hover:border-primary/30'}`}>
-                {tag.label} ({entries.filter(e => e.mood_tag === tag.id).length})
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* AI Insight Button & Card */}
-        {entries.length >= 3 && !insight && activeTab === 'journal' && (
-          <button onClick={fetchInsights} disabled={loadingInsight}
-            className="w-full py-3.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-semibold text-sm transition-all flex items-center justify-center gap-2 mb-4">
-            {loadingInsight ? <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> : <Sparkles size={16} />}
-            {loadingInsight ? 'Analyzing your entries...' : 'Get AI Psychological Reflection'}
-          </button>
-        )}
-
-        {insight && activeTab === 'journal' && (
-          <Card className="p-5 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 relative mb-4">
-            <button onClick={() => setInsight(null)} className="absolute top-4 right-4 text-text-muted hover:text-text">
-              <X size={16} />
-            </button>
-            <h3 className="font-heading font-semibold text-primary flex items-center gap-2 mb-3">
-              <Sparkles size={16} /> AI Reflection
-            </h3>
-            <p className="text-sm text-text leading-relaxed mb-4">{insight.summary}</p>
-            
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">Detected Patterns</p>
-              <ul className="space-y-1.5">
-                {insight.patterns.map((p, i) => (
-                  <li key={i} className="text-xs text-text-muted flex items-start gap-1.5">
-                    <span className="text-primary/70 mt-0.5">•</span> {p}
-                  </li>
-                ))}
-              </ul>
+          {showPast && (
+            <div className="h-96 animate-fade-in">
+              <PastEntries
+                onSelectDate={date => {
+                  handleDateSelect(date);
+                  setShowPast(false); // collapse after selection
+                }}
+                selectedDate={selectedDate}
+                refreshKey={pastKey}
+              />
             </div>
-            
-            <div className="bg-surface/60 rounded-lg p-3 border border-border">
-              <p className="text-xs font-semibold text-primary mb-1">CBT Advice</p>
-              <p className="text-sm text-text leading-relaxed">{insight.advice}</p>
-            </div>
-          </Card>
-        )}
-
-        {/* Entries List */}
-        {entries.length > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Journal History</h2>
-              {selectedDate && (
-                <button onClick={() => setSelectedDate(null)} className="text-primary hover:underline text-[10px]">
-                  Clear Filter
-                </button>
-              )}
-            </div>
-            {renderCalendar()}
-          </div>
-        )}
-        {loading ? (
-          <div className="flex items-center justify-center h-20 text-text-muted text-sm">Loading entries...</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-text-muted">
-            <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-medium">No entries yet</p>
-            <p className="text-xs mt-1 opacity-60">Start writing — this space is entirely yours.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map(entry => {
-              const tag = tagConfig(entry.mood_tag);
-              const date = new Date(entry.created_at);
-              const preview = entry.content.length > 120 ? entry.content.slice(0, 120) + '…' : entry.content;
-              return (
-                <Card key={entry.id} className="p-4 hover:bg-surface-bright/50 transition-colors cursor-default group animate-slide-up relative">
-                  <button onClick={() => handleDelete(entry.id)} className="absolute top-4 right-4 p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all">
-                    <Trash2 size={14} />
-                  </button>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {tag && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${tag.color}`}>
-                          {tag.label}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-1 text-xs text-text-muted">
-                        <Clock size={11} />
-                        {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        {' '}·{' '}
-                        {date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-text leading-relaxed">{preview}</p>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-        </>}
+          )}
+        </div>
       </main>
     </div>
   );

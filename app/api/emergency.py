@@ -15,8 +15,65 @@ import asyncio
 
 router = APIRouter(prefix="/api/emergency", tags=["emergency"])
 
+class SOSTriggerRequest(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    message: Optional[str] = None
+
+
+@router.get("/contacts")
+def get_emergency_contacts():
+    """Return verified institutional and national crisis contacts."""
+    return [
+        {
+            "name": "Vishnu Campus Emergency Security",
+            "phone": "+91 8816-250864",
+            "type": "Campus Security & Health Desk",
+            "available": "24/7"
+        },
+        {
+            "name": "Tele-MANAS National Helpline",
+            "phone": "14416 / 1800-891-4416",
+            "type": "Govt. of India Mental Health Crisis",
+            "available": "24/7 Toll-Free"
+        },
+        {
+            "name": "KIRAN Mental Health Helpline",
+            "phone": "1800-599-0019",
+            "type": "Early Crisis Intervention",
+            "available": "24/7"
+        },
+        {
+            "name": "Vishnu Health & Counseling Center",
+            "location": "A-Block Ground Floor, VIT Campus",
+            "type": "Walk-in Clinical Care",
+            "available": "Mon-Sat 8:30 AM - 6:00 PM"
+        }
+    ]
+
+
+@router.get("/status")
+def get_sos_status(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    """Check if the student has an active emergency alert."""
+    active_alert = db.query(RiskAlert).filter(
+        RiskAlert.student_id == student.id,
+        RiskAlert.status == "active"
+    ).order_by(RiskAlert.created_at.desc()).first()
+
+    return {
+        "has_active_sos": active_alert is not None,
+        "alert_id": active_alert.id if active_alert else None,
+        "risk_level": active_alert.risk_level if active_alert else "normal"
+    }
+
+
+@router.post("/trigger")
 @router.post("/sos")
 def trigger_emergency_sos(
+    req: Optional[SOSTriggerRequest] = None,
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):

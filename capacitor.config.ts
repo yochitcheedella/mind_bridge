@@ -4,6 +4,9 @@ const config: CapacitorConfig = {
   appId: 'com.mindbridge.app',
   appName: 'MindBridge',
   webDir: 'dist',
+  server: {
+    cleartext: true
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,

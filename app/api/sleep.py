@@ -32,18 +32,20 @@ class SleepLogRequest(BaseModel):
     note: Optional[str] = None
 
 
+@router.post("")
 @router.post("/log")
 def log_sleep(req: SleepLogRequest, student: Student = Depends(_get_student), db: Session = Depends(get_db)):
     """Log tonight's sleep — hours (0–12) and quality rating."""
     if req.hours < 0 or req.hours > 12:
         raise HTTPException(status_code=422, detail="Hours must be between 0 and 12.")
-    if req.quality not in QUALITY_OPTIONS:
+    quality_lower = req.quality.strip().lower()
+    if quality_lower not in QUALITY_OPTIONS:
         raise HTTPException(status_code=422, detail=f"Quality must be one of: {', '.join(QUALITY_OPTIONS)}.")
 
     entry = SleepLog(
         student_id=student.id,
         hours=req.hours,
-        quality=req.quality,
+        quality=quality_lower,
         note=req.note,
     )
     db.add(entry)
@@ -58,6 +60,7 @@ def log_sleep(req: SleepLogRequest, student: Student = Depends(_get_student), db
     }
 
 
+@router.get("")
 @router.get("/history")
 def get_sleep_history(student: Student = Depends(_get_student), db: Session = Depends(get_db)):
     """Return the student's last 30 sleep log entries, newest first."""

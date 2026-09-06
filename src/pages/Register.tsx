@@ -91,13 +91,13 @@ export default function Register() {
       <div className="w-full max-w-[440px] relative animate-fade-in my-auto">
         {/* Brand */}
         <div className="text-center mb-7">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/25 mb-4">
-            <Shield className="text-primary" size={26} />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 border border-primary/30 p-1 mb-3 shadow-lg shadow-primary/15">
+            <img src="/logo.png" alt="Vishnu Wellness Centre" className="w-full h-full object-cover rounded-full drop-shadow-md" />
           </div>
           <h1 className="text-2xl font-heading font-bold text-on-surface">
-            Join Mind<span className="text-primary">Bridge</span>
+            Vishnu Wellness Centre
           </h1>
-          <p className="text-on-surface-variant text-sm mt-1">Vishnu Institute of Technology · Your identity stays anonymous.</p>
+          <p className="text-on-surface-variant text-sm mt-1">Sri Vishnu Educational Society · Your identity stays anonymous.</p>
         </div>
 
         {step === 'form' ? (
@@ -133,13 +133,16 @@ export default function Register() {
 
               {/* Alias */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Chosen Alias (Visible to Counselors)</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Chosen Anonymous Name (Visible to Counselors)</label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">masks</span>
                   <input type="text" required value={alias} onChange={e => setAlias(e.target.value)}
                     placeholder="e.g. Blue Sparrow"
                     className="w-full bg-surface-container-low border border-border-internal rounded-xl pl-10 pr-4 py-3 text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-interactive-primary transition-all" />
                 </div>
+                <p className="text-[11px] text-on-surface-variant/80">
+                  This anonymous name will be visible to psychologists during counseling sessions. If another student already uses it, a private tag (e.g. #4821) is automatically appended.
+                </p>
               </div>
 
               {/* Email */}

@@ -5,7 +5,8 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
-from app.core.deps import get_current_student
+from app.core.deps import get_current_student, get_current_user_any_role
+from app.core.security import create_access_token
 from app.models.appointment import Appointment
 from app.models.psychologist import Psychologist
 from app.models.user import Student
@@ -108,6 +109,7 @@ def get_my_appointments(
                 "psychologist_name": psych.name if psych else "Unknown",
                 "specialization": psych.specialization if psych else "",
                 "slot_time": a.slot_time.isoformat() if a.slot_time else None,
+                "student_alias": student.anonymous_token,
                 "status": a.status,
                 "notes": a.notes,
                 "meeting_link": f"https://meet.mindbridge.health/session/{a.id}" if a.id % 2 == 0 else None,
@@ -196,3 +198,110 @@ def cancel_appointment(
     appt.status = "cancelled"
     db.commit()
     return {"status": "cancelled"}
+
+
+@router.post("/{appointment_id}/call-token")
+def get_appointment_call_token(
+    appointment_id: int,
+    current_user: dict = Depends(get_current_user_any_role),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate temporary, appointment-verified audio call room token.
+    Enforces MindBridge Security Rule:
+    Room is inaccessible without explicit appointment ownership verification.
+    - If student: must be assigned student.
+    - If psychologist: must be assigned psychologist.
+    - Never reveals student's real name, email, phone, or roll number to psychologist.
+    """
+    appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+
+    role = current_user.get("role", "student")
+    user_id = current_user.get("id")
+
+    student = db.query(Student).filter(Student.id == appt.student_id).first()
+    psych = db.query(Psychologist).filter(Psychologist.id == appt.psychologist_id).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student record not found.")
+
+    student_alias = student.anonymous_token or "Anonymous Student"
+    psych_name = psych.name if psych else "Clinical Psychologist"
+
+    if role == "student":
+        if appt.student_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: You are not the assigned student for this appointment."
+            )
+        my_alias = student_alias
+        peer_alias = psych_name
+    elif role in ("psychologist", "admin"):
+        if role == "psychologist" and appt.psychologist_id and appt.psychologist_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: You are not the assigned psychologist for this appointment."
+            )
+        my_alias = psych_name
+        peer_alias = student_alias
+    else:
+        raise HTTPException(status_code=403, detail="Unauthorized role.")
+
+    call_token_data = {
+        "sub": str(user_id),
+        "role": role,
+        "token_type": "call_token",
+        "appointment_id": appt.id,
+        "my_alias": my_alias,
+        "peer_alias": peer_alias,
+    }
+    call_token = create_access_token(call_token_data, expires_delta=timedelta(hours=2))
+
+    return {
+        "call_token": call_token,
+        "appointment_id": appt.id,
+        "role": role,
+        "my_alias": my_alias,
+        "peer_alias": peer_alias,
+        "status": appt.status,
+        "slot_time": appt.slot_time.isoformat() if appt.slot_time else None,
+        "counselor_name": psych_name,
+        "student_identity": student_alias,
+    }
+
+
+class AppointmentFeedbackRequest(BaseModel):
+    rating: int  # 1 to 5
+    tags: Optional[str] = None
+    comment: Optional[str] = None
+
+
+@router.post("/{appointment_id}/feedback")
+def submit_appointment_feedback(
+    appointment_id: int,
+    req: AppointmentFeedbackRequest,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    """
+    Submits anonymous session feedback from student and marks appointment as completed.
+    Zero-PII guaranteed.
+    """
+    appt = db.query(Appointment).filter(
+        Appointment.id == appointment_id,
+        Appointment.student_id == student.id,
+    ).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found.")
+
+    appt.feedback_rating = max(1, min(5, req.rating))
+    appt.feedback_tags = req.tags
+    appt.feedback_comment = req.comment
+    appt.status = "completed"
+
+    db.commit()
+    return {"status": "completed", "message": "Feedback submitted successfully."}
+
+

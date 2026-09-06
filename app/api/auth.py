@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+import random
 
 from app.core.database import get_db
 from app.core.security import (
@@ -57,7 +58,7 @@ class StudentRegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
-    role: str = "student"  # "student" | "psychologist" | "admin"
+    role: Optional[str] = None  # None / "auto" | "student" | "psychologist" | "admin"
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -68,6 +69,13 @@ class ResetPasswordRequest(BaseModel):
     email: str
     otp: str
     new_password: str
+
+
+class ConsentRequest(BaseModel):
+    policy_version: str = "v1.0-vishnu"
+    accepted_privacy: bool = True
+    accepted_anonymous_policy: bool = True
+    accepted_crisis_terms: bool = True
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -89,41 +97,62 @@ class AdminCreateRequest(BaseModel):
 
 @router.post("/register")
 def register_student(req: StudentRegisterRequest, db: Session = Depends(get_db)):
-    """Register a new VIT student. Email is encrypted; alias is the public identity."""
-    existing = db.query(Student).filter(Student.email_hash == req.email.lower()).first()
+    """
+    Registers a new VIT student with AES-128 encrypted identity vault.
+    Real identity is never stored in plaintext.
+    """
+    email_clean = req.email.lower().strip()
+
+    # Check for duplicate registration
+    existing = db.query(Student).filter(Student.email_hash == email_clean).first()
     if existing:
-        raise HTTPException(status_code=400, detail="This email is already registered.")
+        raise HTTPException(status_code=400, detail="An account with this VIT email already exists.")
 
-    alias_existing = db.query(Student).filter(Student.anonymous_token == req.alias).first()
-    if alias_existing:
-        raise HTTPException(status_code=400, detail="This alias is already taken. Please choose another.")
+    # Handle user-controlled anonymous alias with graceful collision resolution
+    raw_alias = req.alias.strip() if req.alias and req.alias.strip() else ""
+    if raw_alias:
+        alias = raw_alias
+        # If another student already uses this alias, append private discriminator like #4821
+        while db.query(Student).filter(Student.anonymous_token == alias).first():
+            alias = f"{raw_alias} #{random.randint(1000, 9999)}"
+    else:
+        alias = generate_anonymous_alias()
+        while db.query(Student).filter(Student.anonymous_token == alias).first():
+            alias = generate_anonymous_alias()
 
-    # Email domain check — VIT students only
-    email_lower = req.email.lower().strip()
-    allowed_domains = ["@vishnu.edu.in", "@vitap.ac.in", "@vitbhopal.ac.in", "@vit.ac.in", "@gmail.com", "@student.vit"]
-    # In production, restrict strictly. For now, any email works for dev.
+    # Encrypt PII
+    enc_name = encrypt_data(req.name.strip())
+    enc_phone = encrypt_data(req.phone.strip())
+    enc_email = encrypt_data(email_clean)
 
     student = Student(
-        email_hash=email_lower,
+        email_hash=email_clean,
         password_hash=hash_password(req.password),
-        encrypted_name=encrypt_data(req.name),
-        encrypted_phone=encrypt_data(req.phone),
-        encrypted_email=encrypt_data(email_lower),
-        anonymous_token=req.alias,
-        department=req.department,
-        year=req.year,
+        encrypted_name=enc_name,
+        encrypted_phone=enc_phone,
+        encrypted_email=enc_email,
+        anonymous_token=alias,
+        department=req.department.strip() or "General",
+        year=max(1, min(10, req.year)),
         risk_score=0.0,
+        burnout_probability=0.0,
+        daily_wellness_score=100,
     )
     db.add(student)
     db.commit()
     db.refresh(student)
 
-    token = create_access_token({"sub": str(student.id), "alias": req.alias, "role": "student"})
+    token = create_access_token({
+        "sub": str(student.id),
+        "alias": student.anonymous_token,
+        "role": "student",
+    })
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": "student",
-        "anonymous_alias": req.alias,
+        "anonymous_alias": student.anonymous_token,
         "student_id": student.id,
         "institution": VIT_INSTITUTION,
         "primary_color": VIT_PRIMARY_COLOR,
@@ -135,85 +164,106 @@ def register_student(req: StudentRegisterRequest, db: Session = Depends(get_db))
 @router.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     """
-    Unified login for all 3 VIT roles: student, psychologist, admin.
+    Unified login for all 3 Vishnu College roles: student, psychologist, admin.
+    Auto-detects role if not explicitly provided, or validates against selected role.
     Returns a JWT with the 'role' claim embedded.
     """
-    role = req.role.lower().strip()
+    role = req.role.lower().strip() if req.role else None
+    email_clean = req.email.lower().strip()
 
-    # ── Student Login ──
-    if role == "student":
-        student = db.query(Student).filter(Student.email_hash == req.email.lower()).first()
-        if not student or not verify_password(req.password, student.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
+    # Helper functions for each role check
+    def _try_student():
+        student = db.query(Student).filter(Student.email_hash == email_clean).first()
+        if student and verify_password(req.password, student.password_hash):
+            token = create_access_token({
+                "sub": str(student.id),
+                "alias": student.anonymous_token,
+                "role": "student",
+            })
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "role": "student",
+                "anonymous_alias": student.anonymous_token,
+                "student_id": student.id,
+                "institution": VIT_INSTITUTION,
+                "primary_color": VIT_PRIMARY_COLOR,
+            }
+        return None
 
-        token = create_access_token({
-            "sub": str(student.id),
-            "alias": student.anonymous_token,
-            "role": "student",
-        })
-        return {
-            "access_token": token,
-            "token_type": "bearer",
-            "role": "student",
-            "anonymous_alias": student.anonymous_token,
-            "student_id": student.id,
-            "institution": VIT_INSTITUTION,
-            "primary_color": VIT_PRIMARY_COLOR,
-        }
-
-    # ── Psychologist Login ──
-    elif role == "psychologist":
+    def _try_psychologist():
         psych = db.query(Psychologist).filter(
-            Psychologist.email == req.email.lower(),
+            Psychologist.email == email_clean,
             Psychologist.is_active == True,
         ).first()
-        if not psych or not psych.password_hash:
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
-        if not verify_password(req.password, psych.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        if psych and psych.password_hash and verify_password(req.password, psych.password_hash):
+            token = create_access_token({
+                "sub": str(psych.id),
+                "name": psych.name,
+                "role": "psychologist",
+            })
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "role": "psychologist",
+                "psychologist_id": psych.id,
+                "name": psych.name,
+                "specialization": psych.specialization,
+                "institution": VIT_INSTITUTION,
+                "primary_color": "#3b82f6",
+            }
+        return None
 
-        token = create_access_token({
-            "sub": str(psych.id),
-            "name": psych.name,
-            "role": "psychologist",
-        })
-        return {
-            "access_token": token,
-            "token_type": "bearer",
-            "role": "psychologist",
-            "psychologist_id": psych.id,
-            "name": psych.name,
-            "specialization": psych.specialization,
-            "institution": VIT_INSTITUTION,
-            "primary_color": "#3b82f6",  # Blue for psychologist
-        }
-
-    # ── Admin Login ──
-    elif role == "admin":
+    def _try_admin():
         admin = db.query(VITAdmin).filter(
-            VITAdmin.email == req.email.lower(),
+            VITAdmin.email == email_clean,
             VITAdmin.is_active == True,
         ).first()
-        if not admin or not verify_password(req.password, admin.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        if admin and verify_password(req.password, admin.password_hash):
+            token = create_access_token({
+                "sub": str(admin.id),
+                "name": admin.name,
+                "role": "admin",
+            })
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "role": "admin",
+                "admin_id": admin.id,
+                "name": admin.name,
+                "institution": VIT_INSTITUTION,
+                "primary_color": "#8b5cf6",
+            }
+        return None
 
-        token = create_access_token({
-            "sub": str(admin.id),
-            "name": admin.name,
-            "role": "admin",
-        })
-        return {
-            "access_token": token,
-            "token_type": "bearer",
-            "role": "admin",
-            "admin_id": admin.id,
-            "name": admin.name,
-            "institution": VIT_INSTITUTION,
-            "primary_color": "#8b5cf6",  # Purple for admin
-        }
+    # 1. Explicit role provided
+    if role == "student":
+        res = _try_student()
+        if res: return res
+        raise HTTPException(status_code=401, detail="Invalid student credentials.")
+    elif role == "psychologist":
+        res = _try_psychologist()
+        if res: return res
+        raise HTTPException(status_code=401, detail="Invalid psychologist credentials.")
+    elif role == "admin":
+        res = _try_admin()
+        if res: return res
+        raise HTTPException(status_code=401, detail="Invalid admin credentials.")
 
-    else:
-        raise HTTPException(status_code=400, detail="Invalid role. Must be: student, psychologist, or admin.")
+    # 2. Unified Auto-detection (No role specified)
+    # Check student first
+    res = _try_student()
+    if res: return res
+
+    # Check psychologist
+    res = _try_psychologist()
+    if res: return res
+
+    # Check admin
+    res = _try_admin()
+    if res: return res
+
+    raise HTTPException(status_code=401, detail="Invalid email or password.")
 
 
 # ── Password Reset (Students) ──────────────────────────────────────────────────
@@ -309,6 +359,48 @@ def update_fcm_token(
     return {"status": "success", "message": "FCM token updated."}
 
 
+# ── Consent Management ─────────────────────────────────────────────────────────
+
+@router.post("/consent")
+def submit_consent(
+    req: ConsentRequest,
+    current: Student = Depends(_get_current_student),
+    db: Session = Depends(get_db),
+):
+    """Record student institutional consent for anonymous support & safety policies."""
+    # Audit log the consent acceptance
+    audit = AuditLog(
+        action="CONSENT_ACCEPTED",
+        action_type="policy_consent",
+        actor_id=current.id,
+        target_student_id=current.id,
+        details=f"Accepted policy version: {req.policy_version} (Privacy: {req.accepted_privacy}, Anon: {req.accepted_anonymous_policy}, Crisis: {req.accepted_crisis_terms})"
+    )
+    db.add(audit)
+    db.commit()
+    return {
+        "status": "success",
+        "message": "Consent recorded successfully.",
+        "policy_version": req.policy_version,
+    }
+
+
+@router.get("/consent/status")
+def get_consent_status(
+    current: Student = Depends(_get_current_student),
+    db: Session = Depends(get_db),
+):
+    """Check if the current student has recorded policy consent."""
+    consent_audit = db.query(AuditLog).filter(
+        AuditLog.target_student_id == current.id,
+        AuditLog.action == "CONSENT_ACCEPTED",
+    ).first()
+    return {
+        "has_consented": consent_audit is not None,
+        "policy_version": "v1.0-vishnu",
+    }
+
+
 # ── Seed: Create default VIT admin (for first run) ────────────────────────────
 
 @router.post("/seed-admin")
@@ -336,3 +428,4 @@ def seed_vit_admin(req: AdminCreateRequest, db: Session = Depends(get_db)):
         "message": f"VIT Admin '{admin.name}' created successfully.",
         "admin_id": admin.id,
     }
+

@@ -16,14 +16,17 @@ interface Appointment {
   slot_time: string;
   status: string;
   notes: string | null;
+  student_alias?: string;
   meeting_link?: string;
   check_in_code?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  confirmed: { label: 'Confirmed', color: 'bg-[#a1f3c3]/15 text-[#a1f3c3] border-[#a1f3c3]/25', icon: 'check_circle' },
-  pending:   { label: 'Pending',   color: 'bg-warning/15 text-warning border-warning/25', icon: 'pending' },
-  cancelled: { label: 'Cancelled', color: 'bg-error/15 text-error border-error/25',       icon: 'cancel' },
+  confirmed:   { label: 'Confirmed',   color: 'bg-[#a1f3c3]/15 text-[#a1f3c3] border-[#a1f3c3]/25', icon: 'check_circle' },
+  pending:     { label: 'Pending',     color: 'bg-warning/15 text-warning border-warning/25', icon: 'pending' },
+  cancelled:   { label: 'Cancelled',   color: 'bg-error/15 text-error border-error/25',       icon: 'cancel' },
+  rescheduled: { label: 'Rescheduled', color: 'bg-amber-500/15 text-amber-300 border-amber-500/25', icon: 'update' },
+  completed:   { label: 'Completed',   color: 'bg-blue-500/15 text-blue-400 border-blue-500/25',   icon: 'task_alt' },
 };
 
 export default function Appointments() {
@@ -225,23 +228,38 @@ export default function Appointments() {
                         <span className="material-symbols-outlined text-[12px]">{statusCfg.icon}</span> {statusCfg.label}
                       </span>
                     </div>
+
+                    {/* Anonymous Student Identity Banner */}
+                    <div className="mt-3 pt-2.5 border-t border-border-internal/60 flex items-center justify-between">
+                      <div className="text-[11px] text-on-surface-variant flex items-center gap-1.5">
+                        <span>Your identity:</span>
+                        <span className="font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                          {appt.student_alias || getAlias() || 'Anonymous Student'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant/80 font-mono-data">Encrypted Vault</span>
+                    </div>
                     
-                    {appt.status === 'confirmed' && isFuture && (
-                      <div className="mt-4 pt-3 border-t border-border-internal flex justify-between items-center">
+                    {appt.status !== 'cancelled' && (
+                      <div className="mt-3 pt-3 border-t border-border-internal flex justify-between items-center gap-2">
                         <button onClick={() => handleCancel(appt.id)}
                           className="font-label-sm text-label-sm text-on-surface-variant hover:text-error transition-colors flex items-center gap-1">
                           <span className="material-symbols-outlined text-[14px]">cancel</span> Cancel
                         </button>
                         <div className="flex items-center gap-2">
-                          {appt.meeting_link ? (
-                            <button className="text-xs bg-interactive-primary/20 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-interactive-primary/30 transition-all flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[14px]">videocam</span> Join Video
-                            </button>
-                          ) : appt.check_in_code ? (
-                            <button className="text-xs bg-surface-container-low border border-border-internal text-on-surface px-3 py-1.5 rounded-lg font-bold hover:bg-surface-container transition-all flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[14px]">qr_code</span> QR Check-in
-                            </button>
-                          ) : null}
+                          <button
+                            onClick={() => navigate(`/student/messages?appointmentId=${appt.id}`)}
+                            className="text-xs bg-primary/20 text-primary border border-primary/30 px-3 py-1.5 rounded-lg font-semibold hover:bg-primary/30 transition-all flex items-center gap-1.5 active:scale-95"
+                          >
+                            <span>💬 Message</span>
+                          </button>
+                          <button
+                            onClick={() => navigate(`/call/${appt.id}`)}
+                            className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3.5 py-1.5 rounded-lg font-bold hover:bg-emerald-500/30 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/10 active:scale-95 animate-pulse"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span>🟢 Join Audio Call</span>
+                          </button>
                         </div>
                       </div>
                     )}

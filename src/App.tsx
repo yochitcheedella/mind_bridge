@@ -16,7 +16,6 @@ import AIChat from './pages/AIChat';
 import MoodTracker from './pages/MoodTracker';
 import Journal from './pages/Journal';
 import Appointments from './pages/Appointments';
-import Community from './pages/Community';
 import WellnessExercises from './pages/WellnessExercises';
 import HabitTracker from './pages/HabitTracker';
 import Assessments from './pages/Assessments';
@@ -26,6 +25,7 @@ import Notifications from './pages/Notifications';
 import VoiceTherapist from './pages/VoiceTherapist';
 import EmergencyResponse from './pages/EmergencyResponse';
 import ProfileSettings from './pages/ProfileSettings';
+import Community from './pages/Community';
 
 // ── NEW Mindblowing & Clinical Student Pages ───────────────────────────────────
 import CognitiveReframing from './pages/CognitiveReframing';
@@ -41,6 +41,8 @@ import ClinicalSOAPNotes from './pages/ClinicalSOAPNotes';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminUsers from './pages/AdminUsers';
 import AdminReports from './pages/AdminReports';
+import AnonymousAudioCall from './pages/AnonymousAudioCall';
+import CounselorChat from './pages/CounselorChat';
 
 const withLayout = (element: React.ReactNode) => (
   <AppLayout>
@@ -73,12 +75,13 @@ function App() {
         {/* ── Student Routes (Wrapped in Widescreen AppLayout) ── */}
         <Route path="/student/home"            element={withLayout(<StudentDashboard />)} />
         <Route path="/student/chat"            element={withLayout(<AIChat />)} />
+        <Route path="/student/messages"        element={<CounselorChat />} />
+        <Route path="/student/counselor-chat"  element={<CounselorChat />} />
         <Route path="/student/cbt-reframing"   element={withLayout(<CognitiveReframing />)} />
         <Route path="/student/breathwork"      element={withLayout(<InteractiveBreathwork />)} />
         <Route path="/student/mood"            element={withLayout(<MoodTracker />)} />
         <Route path="/student/journal"         element={withLayout(<Journal />)} />
         <Route path="/student/appointments"    element={withLayout(<Appointments />)} />
-        <Route path="/student/community"       element={withLayout(<Community />)} />
         <Route path="/student/wellness"        element={withLayout(<WellnessExercises />)} />
         <Route path="/student/habits"          element={withLayout(<HabitTracker />)} />
         <Route path="/student/assessments"     element={withLayout(<Assessments />)} />
@@ -86,6 +89,7 @@ function App() {
         <Route path="/student/recovery-plan"   element={withLayout(<FollowUpPlan />)} />
         <Route path="/student/notifications"   element={withLayout(<Notifications />)} />
         <Route path="/student/voice-therapist" element={withLayout(<VoiceTherapist />)} />
+        <Route path="/student/community"       element={withLayout(<Community />)} />
         <Route path="/student/emergency"       element={withLayout(<EmergencyResponse />)} />
         <Route path="/student/profile"         element={withLayout(<ProfileSettings />)} />
 
@@ -102,12 +106,15 @@ function App() {
         <Route path="/admin/reports"    element={withLayout(<AdminReports />)} />
         <Route path="/admin/settings"   element={withLayout(<ProfileSettings />)} />
 
+        {/* ── Anonymous Audio Call (Full screen distraction-free) ── */}
+        <Route path="/call/:appointmentId" element={<AnonymousAudioCall />} />
+
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
-      {/* Mobile Floating Bottom Navbar */}
-      <Navbar />
+      {/* Mobile Floating Bottom Navbar (hidden during active call) */}
+      {!location.pathname.startsWith('/call/') && <Navbar />}
     </>
   );
 }

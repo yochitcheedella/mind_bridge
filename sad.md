@@ -9,16 +9,20 @@ MindBridge AI is an institutional mobile application built exclusively for **Vis
 ## 2. Architectural Overview
 MindBridge employs a **Client-Server architecture** with a React Native mobile frontend communicating with a Python FastAPI backend hosted on VIT's server infrastructure.
 
-### 2.1 Frontend (Mobile Application)
-- **Framework:** React Native (Expo managed workflow)
-- **Styling:** React Native StyleSheet / NativeWind
-- **State Management:** React Context / Zustand
+### 2.1 Frontend (Cross-Platform Mobile & Web Application)
+- **Framework:** React 19 + TypeScript + Vite
+- **Mobile Container & PWA:** Capacitor (Android APK/AAB / iOS native wrapper) + PWA Service Worker (Vite PWA / Workbox)
+- **Styling:** Vanilla Tailwind CSS with custom institutional design system tokens, glassmorphism, and responsive breakpoints
+- **State & Security Management:** React Hooks with encrypted localStorage institutional token vault
 - **Key Modules:**
-  - AI Chat (Mobile Speech-to-Text API)
-  - Student Dashboard & Mood Tracker
-  - Psychologist Dashboard & Risk Queue
-  - Admin Analytics Dashboard
-- **Navigation:** React Navigation v6
+  - AI Therapy Companion & Voice Therapist (Speech recognition & audio synthesis)
+  - Student Dashboard, Mood Tracker, Sleep Tracker, Habit Tracker, and Secure Journal
+  - Cognitive Behavioral Therapy (CBT) Thought Studio & Interactive Breathwork
+  - Psychologist Triage Radar, Patient Roster, SOAP Notes EHR, and WebRTC Audio Calls
+  - Admin Executive Analytics, User Directory, and Institutional Audit Logging
+  - Peer Community Forum with anonymous discussions and upvoting
+  - Emergency SOS & Campus Response Hotline
+- **Navigation:** React Router v7 with role-based routing and widescreen responsive AppLayout drawer
 
 ### 2.2 Backend
 - **Framework:** FastAPI (Python 3.11+)

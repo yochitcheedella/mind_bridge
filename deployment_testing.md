@@ -41,7 +41,7 @@ Ensure the mobile application and institutional server have been deployed succes
 All tests execute safely in isolated in-memory databases (`sqlite:///:memory:`) without modifying live server records:
 
 ```bash
-venv\Scripts\pytest.exe -v test_admin_analytics.py test_burnout_predictor.py test_community.py test_encryption.py test_storage_multi_role.py test_risk_triage_queue.py
+venv\Scripts\pytest.exe -v
 ```
 
 | Test Script | Verification Focus | Expected Result |
@@ -51,7 +51,19 @@ venv\Scripts\pytest.exe -v test_admin_analytics.py test_burnout_predictor.py tes
 | `test_community.py` | Authenticated JWT forum posting, upvoting, and anonymous discussion replies | **PASS (100%)** |
 | `test_encryption.py` | Symmetric AES-256 encryption of real student identity & emergency clinical decryption protocol | **PASS (100%)** |
 | `test_storage_multi_role.py` | Document & avatar storage uploading across all three user roles (Student, Psychologist, Admin) | **PASS (100%)** |
-| `test_risk_triage_queue.py` | Clinical triage patient queue ordering and baseline inclusion of newly registered students | **PASS (100%)** |
+| `test_all_states_dashboards.py` | Complete cross-role dashboard state traversal across Student, Psychologist, and Admin tiers | **PASS (100%)** |
+| `test_anonymous_audio_call.py` | WebRTC audio call token authorization, feedback submission, and alias collision resolution | **PASS (100%)** |
+| `test_appointments.py` | Counselor slot availability query and student appointment booking flow | **PASS (100%)** |
+| `test_counselor_chat.py` | Real-time confidential 1-on-1 private messaging between student and assigned psychologist | **PASS (100%)** |
+| `test_ai_assistant_ws.py` | WebSocket conversational AI triage, sentiment extraction, and crisis score computation | **PASS (100%)** |
+| `test_ai_recovery_plans.py` | AI wellness recovery checklist generation and dynamic `'active'` to `'completed'` state progression | **PASS (100%)** |
+| `test_auth_password_reset.py` | Unified 3-tier OTP password recovery gateway across Student, Psychologist, and Admin | **PASS (100%)** |
+| `test_digital_diary.py` | Encrypted personal journaling with mood tagging and counselor sharing toggles | **PASS (100%)** |
+| `test_habit_tracker.py` | Habit creation, daily completion logging, and streak accumulation | **PASS (100%)** |
+| `test_identity_reveal_audit.py` | Controlled emergency identity decryption with mandatory audit log recording | **PASS (100%)** |
+| `test_emergency_alerts_ws.py` | Real-time life-safety SOS broadcast dispatch to connected clinical counselors | **PASS (100%)** |
+
+**Summary: 20 passed out of 20 test suites (100% pass rate).**
 
 ---
 

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users, AlertTriangle, Activity, Search, Filter,
-  ChevronRight, Brain, TrendingDown, TrendingUp, Minus,
+  Users, AlertTriangle, Search, Filter,
+  ChevronRight, TrendingDown, TrendingUp, Minus,
   RefreshCw, Shield,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { apiFetch, API_URL } from '../utils/auth';
+import { apiFetch } from '../utils/auth';
 
 interface Patient {
   anonymous_id: string;
@@ -33,7 +32,7 @@ export default function PsychologistPatients() {
   const fetchPatients = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/risk/queue`);
+      const res = await apiFetch('/api/risk/queue');
       if (res.ok) {
         const data = await res.json();
         setPatients(Array.isArray(data) ? data : []);

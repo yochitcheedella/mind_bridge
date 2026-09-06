@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiFetch, applyPrimaryColor, API_URL } from '../utils/auth';
+import { apiFetch } from '../utils/auth';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -13,9 +13,8 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
       const data = await res.json();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, Plus, Trash2, Brain, CheckCircle2, XCircle,
-  Search, RefreshCw, Mail, Shield, ToggleLeft, ToggleRight,
+  Search, RefreshCw, Mail, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { apiFetch } from '../utils/auth';

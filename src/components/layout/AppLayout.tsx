@@ -18,14 +18,13 @@ interface NavItem {
 const STUDENT_NAV: NavItem[] = [
   { path: '/student/home', icon: 'home', label: 'Dashboard' },
   { path: '/student/chat', icon: 'smart_toy', label: 'AI Therapy Guide', badge: 'PRO' },
-  { path: '/student/cbt-reframing', icon: 'psychology', label: 'CBT Thought Studio', badge: 'NEW' },
-  { path: '/student/breathwork', icon: 'air', label: 'Calm Canopy' },
-  { path: '/student/assessments', icon: 'assignment', label: 'Clinical Scales' },
-  { path: '/student/journal', icon: 'edit_note', label: 'Encrypted Journal' },
+  { path: '/student/messages', icon: 'forum', label: 'Counselor Messages', badge: 'ANON' },
   { path: '/student/appointments', icon: 'event', label: 'Counselor Sessions' },
-  { path: '/student/community', icon: 'groups', label: 'Campus Circles' },
+  { path: '/student/cbt-reframing', icon: 'psychology', label: 'CBT Thought Studio', badge: 'NEW' },
   { path: '/student/wellness', icon: 'self_improvement', label: 'Wellness Exercises' },
   { path: '/student/sleep', icon: 'bedtime', label: 'Sleep & Mood Tracker' },
+  { path: '/student/journal', icon: 'edit_note', label: 'Clinical Journal' },
+  { path: '/student/community', icon: 'diversity_3', label: 'Peer Community' },
   { path: '/student/emergency', icon: 'emergency', label: 'Crisis SOS & Helplines', isSpecial: true },
 ];
 
@@ -80,12 +79,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             {/* Drawer Header */}
             <div className="h-20 flex items-center justify-between px-6 border-b border-border-structural/80">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-interactive-primary to-secondary flex items-center justify-center shadow-lg shadow-interactive-primary/30">
-                  <Shield className="text-on-primary" size={20} />
-                </div>
+                <img 
+                  src="/logo.png" 
+                  alt="Vishnu Wellness Centre" 
+                  className="w-11 h-11 rounded-full object-cover shadow-lg border border-border-structural/50 bg-surface-container-lowest" 
+                />
                 <div>
-                  <span className="font-heading font-bold text-lg text-white tracking-tight">Mind<span className="text-secondary-fixed">Bridge</span></span>
-                  <span className="block text-[10px] uppercase font-mono tracking-widest text-secondary-fixed/80 font-semibold">VIT Platform</span>
+                  <span className="font-heading font-bold text-base text-white tracking-tight leading-tight block">Vishnu <span className="text-secondary-fixed">Wellness</span></span>
+                  <span className="block text-[10px] uppercase font-mono tracking-wider text-secondary-fixed/90 font-semibold">Centre · SVES</span>
                 </div>
               </div>
               <button 
@@ -182,25 +183,31 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         }`}
       >
         {/* Sidebar Brand Header */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-border-structural/80">
+        <div className="h-20 flex items-center justify-between px-5 border-b border-border-structural/80">
           {!isCollapsed ? (
-            <Link to={auth?.role === 'psychologist' ? '/psychologist/dashboard' : '/student/home'} className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-interactive-primary to-secondary flex items-center justify-center shadow-lg shadow-interactive-primary/30">
-                <Shield className="text-on-primary" size={20} />
-              </div>
-              <div>
-                <span className="font-heading font-bold text-lg text-white tracking-tight">Mind<span className="text-secondary-fixed">Bridge</span></span>
-                <span className="block text-[10px] uppercase font-mono tracking-widest text-secondary-fixed/80 font-semibold">VIT Platform</span>
+            <Link to={auth?.role === 'psychologist' ? '/psychologist/dashboard' : '/student/home'} className="flex items-center gap-3 group overflow-hidden">
+              <img 
+                src="/logo.png" 
+                alt="Vishnu Wellness Centre" 
+                className="w-11 h-11 rounded-full object-cover shadow-lg border border-border-structural/50 bg-surface-container-lowest group-hover:scale-105 transition-transform flex-shrink-0" 
+              />
+              <div className="overflow-hidden">
+                <span className="font-heading font-bold text-base text-white tracking-tight leading-tight block truncate">Vishnu <span className="text-secondary-fixed">Wellness</span></span>
+                <span className="block text-[10px] uppercase font-mono tracking-wider text-secondary-fixed/90 font-semibold truncate">Centre · SVES</span>
               </div>
             </Link>
           ) : (
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-tr from-interactive-primary to-secondary flex items-center justify-center shadow-lg">
-              <Shield className="text-on-primary" size={20} />
+            <div className="w-11 h-11 mx-auto flex items-center justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Vishnu Wellness Centre" 
+                className="w-11 h-11 rounded-full object-cover shadow-lg border border-border-structural/50 bg-surface-container-lowest" 
+              />
             </div>
           )}
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)} 
-            className="text-on-surface-variant hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+            className="text-on-surface-variant hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors flex-shrink-0"
             title="Toggle Sidebar"
           >
             <span className="material-symbols-outlined text-[20px]">
@@ -299,12 +306,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 <Menu size={24} />
               </button>
               <Link to={auth?.role === 'psychologist' ? '/psychologist/dashboard' : '/student/home'} className="flex items-center gap-2">
-                <Shield className="text-interactive-primary shrink-0" size={22} />
-                <span className="font-heading font-bold text-base text-white">MindBridge</span>
+                <img src="/logo.png" alt="Vishnu Wellness Centre" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                <span className="font-heading font-bold text-sm text-white">Vishnu Wellness</span>
               </Link>
             </div>
             <span className="hidden md:inline-flex px-3 py-1 rounded-full text-xs font-mono font-medium bg-surface-container-high text-on-surface-variant border border-border-structural">
-              🔒 End-to-End Anonymity Protected • Vishnu Institute of Technology
+              🔒 End-to-End Anonymity Protected • Sri Vishnu Educational Society
             </span>
           </div>
 

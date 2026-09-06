@@ -153,7 +153,7 @@ async def analyze_message_with_history(user_message: str, history: List[Dict[str
             # Run in a threadpool to not block async loop if SDK is sync
             def _call_gemini():
                 return client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=messages,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",

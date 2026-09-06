@@ -37,6 +37,7 @@ from app.api.privacy import router as privacy_router
 from app.api.plan import router as plan_router
 from app.api.notifications import router as notifications_router
 from app.api.clinical import router as clinical_router
+from app.api.call_signaling import router as call_signaling_router
 
 # ── Create all tables, ensure upload storage directory exists, & seed demo users ─
 Base.metadata.create_all(bind=engine)
@@ -66,7 +67,7 @@ origins = [origin.strip() for origin in origins_env.split(",") if origin.strip()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if allow_all else origins,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https?://.*\.vercel\.app$|^https?://.*\.onrender\.com$|^https?://.*\.vishnu\.edu\.in$",
     allow_credentials=not allow_all,  # credentials not supported with wildcard
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,9 +100,11 @@ app.include_router(storage_router)
 app.include_router(habits_router)
 app.include_router(admin_router)
 app.include_router(privacy_router)
-app.include_router(plan_router)
+app.include_router(plan_router, prefix="/api/plans")
+app.include_router(plan_router, prefix="/api/plan")
 app.include_router(notifications_router)
 app.include_router(clinical_router)
+app.include_router(call_signaling_router)
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 if Instrumentator:
@@ -128,3 +131,20 @@ async def get_clinical_pulse():
         "avg_resolution_mins": 14,
         "sentiment_trend": "-12%",
     }
+
+# ── Static SPA Frontend Serving (Full Production Deployment Ready) ─────────────
+if os.path.exists("dist"):
+    from fastapi.responses import FileResponse
+    if os.path.exists("dist/assets"):
+        app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        # Allow API and websocket routes to bypass
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+        file_path = os.path.join("dist", full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse("dist/index.html")

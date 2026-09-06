@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, ArrowRight, Eye, EyeOff, ArrowLeft, Info } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { API_URL } from '../utils/auth';
+import { apiFetch } from '../utils/auth';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -20,9 +20,8 @@ export default function ResetPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+      const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, new_password: password })
       });
       const data = await res.json();

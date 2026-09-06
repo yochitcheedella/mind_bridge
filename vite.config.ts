@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'MindBridge AI',
-        short_name: 'MindBridge',
-        description: 'Anonymous Student Mental Health Platform',
+        name: 'Vishnu Wellness Centre | MindBridge',
+        short_name: 'Vishnu Wellness',
+        description: 'Empowering Minds. Inspiring Lives. Sri Vishnu Educational Society Anonymous Mental Health Platform',
         theme_color: '#12121e',
         background_color: '#12121e',
         display: 'standalone',

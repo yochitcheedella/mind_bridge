@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Shield, AlertTriangle, Clock, ChevronRight, Activity, Filter, CheckCircle2, X, Send, Brain, ShieldAlert, FileText, TrendingUp, Bell, Plus, Calendar } from 'lucide-react';
+import { Shield, AlertTriangle, Clock, ChevronRight, Activity, Filter, CheckCircle2, X, Send, ShieldAlert } from 'lucide-react';
 import { apiFetch, API_URL } from '../utils/auth';
 import { IdentityRequestModal } from '../components/clinical/IdentityRequestModal';
 
@@ -20,14 +20,27 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface SharedJournal {
+  id: number;
+  entry_date: string;
+  content: string;
+  mood: string | null;
+  mood_tag: string | null;
+  word_count: number;
+  created_at: string;
+}
+
 interface CaseDetails {
   student: {
     anonymous_id: string;
     department: string;
     year: number;
     risk_score: number;
+    clinical_concern_level?: string;
   };
+  active_appointment_id?: number | null;
   mood_logs: any[];
+  shared_journals?: SharedJournal[];
   chat_history: ChatMessage[];
 }
 
@@ -38,6 +51,7 @@ interface ActiveAlert { id: number; risk_level: string; triggered_by: string; cr
 
 export default function PsychologistDashboard() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [queue, setQueue] = useState<RiskStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState<string | null>(
@@ -46,7 +60,7 @@ export default function PsychologistDashboard() {
   const [caseDetails, setCaseDetails] = useState<CaseDetails | null>(null);
   const [counselorMessage, setCounselorMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [caseTab, setCaseTab] = useState<'chat' | 'notes' | 'timeline' | 'followup'>('chat');
+  const [caseTab, setCaseTab] = useState<'chat' | 'notes' | 'journals' | 'timeline' | 'followup'>('chat');
   
   const [decryptedIdentity, setDecryptedIdentity] = useState<DecryptedIdentity | null>(null);
   const [decrypting, setDecrypting] = useState(false);
@@ -68,20 +82,17 @@ export default function PsychologistDashboard() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [rescheduleId, setRescheduleId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleTime, setRescheduleTime] = useState('');
 
   // Real-time alerts state
   const [criticalAlert, setCriticalAlert] = useState<{ alert_id?: number, student_id: string, risk_reason: string } | null>(null);
   
   // Escalation state
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
-  const [escalateConfirmText, setEscalateConfirmText] = useState('');
-  const [escalating, setEscalating] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const fetchQueue = () => {
-    fetch(`${API_URL}/api/risk/queue`)
+    apiFetch('/api/risk/queue')
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setQueue(data); })
       .catch(() => {})
@@ -96,7 +107,7 @@ export default function PsychologistDashboard() {
   };
 
   const fetchAlerts = () => {
-    fetch(`${API_URL}/api/risk/alerts`)
+    apiFetch('/api/risk/alerts')
       .then(r => r.json())
       .then(data => { if (data && Array.isArray(data.alerts)) setActiveAlerts(data.alerts); })
       .catch(() => {});
@@ -104,7 +115,7 @@ export default function PsychologistDashboard() {
 
   const handleResolveAlert = async (alertId: number) => {
     try {
-      await fetch(`${API_URL}/api/risk/alerts/${alertId}/resolve`, { method: 'POST' });
+      await apiFetch(`/api/risk/alerts/${alertId}/resolve`, { method: 'POST' });
       fetchAlerts();
       fetchQueue();
     } catch (e) {
@@ -116,13 +127,11 @@ export default function PsychologistDashboard() {
     fetchQueue();
     fetchAppointments();
     fetchAlerts();
-    const qInterval = setInterval(() => {
+    const interval = setInterval(() => {
       fetchQueue();
       fetchAlerts();
-    }, 10000); // refresh queue and alerts every 10s
-    const aInterval = setInterval(() => {
-      if (view === 'appointments') fetchAppointments();
-    }, 2000); // check local appointments every 2s
+      fetchAppointments();
+    }, 8000); // refresh queue, alerts, and appointments every 8s
     
     // Connect to real-time clinical alerts
     const wsUrl = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -145,23 +154,23 @@ export default function PsychologistDashboard() {
     };
     
     return () => {
-      clearInterval(qInterval);
-      clearInterval(aInterval);
+      clearInterval(interval);
       ws.close();
     };
   }, []);
 
   useEffect(() => {
     if (selectedCase) {
-      fetch(`${API_URL}/api/psychologist/student/${selectedCase}`)
+      const encAlias = encodeURIComponent(selectedCase);
+      apiFetch(`/api/psychologist/student/${encAlias}`)
         .then(r => r.json())
         .then(data => setCaseDetails(data))
         .catch(console.error);
       // Load case notes
-      fetch(`${API_URL}/api/psychologist/student/${selectedCase}/notes`)
+      apiFetch(`/api/psychologist/student/${encAlias}/notes`)
         .then(r => r.json()).then(data => { if (Array.isArray(data)) setNotes(data); }).catch(() => {});
       // Load follow-ups
-      fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup`)
+      apiFetch(`/api/psychologist/student/${encAlias}/followup`)
         .then(r => r.json()).then(data => { if (Array.isArray(data)) setFollowUps(data); }).catch(() => {});
       setCaseTab('chat');
     } else {
@@ -182,15 +191,15 @@ export default function PsychologistDashboard() {
     if (!counselorMessage.trim() || !selectedCase) return;
     setSending(true);
     try {
-      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/chat`, {
+      const encAlias = encodeURIComponent(selectedCase);
+      const res = await apiFetch(`/api/psychologist/student/${encAlias}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: counselorMessage })
       });
       if (res.ok) {
         setCounselorMessage('');
         // Refresh details to show the new message
-        const data = await (await fetch(`${API_URL}/api/psychologist/student/${selectedCase}`)).json();
+        const data = await (await apiFetch(`/api/psychologist/student/${encAlias}`)).json();
         setCaseDetails(data);
       }
     } catch (err) {
@@ -203,7 +212,8 @@ export default function PsychologistDashboard() {
   const handleResolve = async () => {
     if (!selectedCase) return;
     try {
-      await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/resolve`, { method: 'POST' });
+      const encAlias = encodeURIComponent(selectedCase);
+      await apiFetch(`/api/psychologist/student/${encAlias}/resolve`, { method: 'POST' });
       setSelectedCase(null);
       fetchQueue();
     } catch (err) {
@@ -215,8 +225,9 @@ export default function PsychologistDashboard() {
     if (!newNote.trim() || !selectedCase) return;
     setSavingNote(true);
     try {
-      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/notes`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const encAlias = encodeURIComponent(selectedCase);
+      const res = await apiFetch(`/api/psychologist/student/${encAlias}/notes`, {
+        method: 'POST',
         body: JSON.stringify({ content: newNote.trim() }),
       });
       if (res.ok) {
@@ -231,8 +242,9 @@ export default function PsychologistDashboard() {
     if (!followupDate || !selectedCase) return;
     setSavingFollowup(true);
     try {
-      const res = await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const encAlias = encodeURIComponent(selectedCase);
+      const res = await apiFetch(`/api/psychologist/student/${encAlias}/followup`, {
+        method: 'POST',
         body: JSON.stringify({ due_date: followupDate, reason: followupReason || null }),
       });
       if (res.ok) {
@@ -245,7 +257,8 @@ export default function PsychologistDashboard() {
 
   const handleCompleteFollowup = async (id: number) => {
     if (!selectedCase) return;
-    await fetch(`${API_URL}/api/psychologist/student/${selectedCase}/followup/${id}/complete`, { method: 'POST' });
+    const encAlias = encodeURIComponent(selectedCase);
+    await apiFetch(`/api/psychologist/student/${encAlias}/followup/${id}/complete`, { method: 'POST' });
     setFollowUps(prev => prev.map(f => f.id === id ? { ...f, completed: true } : f));
   };
 
@@ -257,11 +270,6 @@ export default function PsychologistDashboard() {
       });
       if (res.ok) {
         fetchAppointments();
-        if (status === 'rescheduled') {
-          setRescheduleId(null);
-          setRescheduleDate('');
-          setRescheduleTime('');
-        }
       }
     } catch (e) {
       console.error(e);
@@ -562,8 +570,12 @@ export default function PsychologistDashboard() {
                               </div>
                             </div>
                             <div className="mt-4 pl-2 flex gap-2">
-                              <button className="flex-1 bg-interactive-primary hover:bg-primary-fixed-dim text-white py-1.5 rounded text-sm font-medium transition-colors">
-                                Join Telehealth
+                              <button
+                                onClick={() => navigate(`/call/${appt.id}`)}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 animate-pulse"
+                              >
+                                <span className="w-2 h-2 rounded-full bg-emerald-300" />
+                                <span>Join Audio Call</span>
                               </button>
                             </div>
                           </div>
@@ -597,8 +609,49 @@ export default function PsychologistDashboard() {
                         {appt.status === 'pending' && isFuture && (
                           <div className="flex gap-2">
                             <button onClick={() => handleUpdateApptStatus(appt.id, 'confirmed')} className="flex-1 py-1.5 bg-success/20 text-success text-xs rounded hover:bg-success/30">Approve</button>
-                            <button onClick={() => setRescheduleId(appt.id === rescheduleId ? null : appt.id)} className="flex-1 py-1.5 bg-warning/20 text-warning text-xs rounded hover:bg-warning/30">Reschedule</button>
+                            <button onClick={() => { setRescheduleId(appt.id === rescheduleId ? null : appt.id); setRescheduleDate(''); }} className="flex-1 py-1.5 bg-warning/20 text-warning text-xs rounded hover:bg-warning/30">Reschedule</button>
                           </div>
+                        )}
+                        {appt.id === rescheduleId && (
+                          <div className="p-3 bg-surface-container rounded-xl border border-warning/30 space-y-2 mt-1">
+                            <label className="text-[11px] font-semibold text-warning block">Select New Date & Time:</label>
+                            <input
+                              type="datetime-local"
+                              value={rescheduleDate}
+                              onChange={e => setRescheduleDate(e.target.value)}
+                              style={{ colorScheme: 'dark' }}
+                              className="w-full bg-surface border border-border-internal rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-warning"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  if (!rescheduleDate) return;
+                                  await handleUpdateApptStatus(appt.id, 'rescheduled', rescheduleDate);
+                                  setRescheduleId(null);
+                                  setRescheduleDate('');
+                                }}
+                                disabled={!rescheduleDate}
+                                className="flex-1 py-1 bg-warning text-black font-bold text-xs rounded hover:brightness-110 disabled:opacity-40 transition-all"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => { setRescheduleId(null); setRescheduleDate(''); }}
+                                className="py-1 px-3 bg-surface-bright text-on-surface text-xs rounded hover:bg-surface-container-high transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {appt.status === 'confirmed' && (
+                          <button
+                            onClick={() => navigate(`/call/${appt.id}`)}
+                            className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 animate-pulse"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                            <span>🟢 Join Audio Call</span>
+                          </button>
                         )}
                         {appt.status !== 'cancelled' && isFuture && (
                           <button onClick={() => handleUpdateApptStatus(appt.id, 'cancelled')} className="w-full py-1.5 bg-error/20 text-error text-xs rounded hover:bg-error/30">Cancel</button>
@@ -808,10 +861,10 @@ export default function PsychologistDashboard() {
               )}
 
               {/* Tabs */}
-              <div className="flex border-b border-border-internal bg-panel-low">
-                {([['chat', 'Chat', 'chat'], ['notes', 'Notes', 'edit_document'], ['timeline', 'Timeline', 'trending_up'], ['followup', 'Follow-up', 'event']] as const).map(([key, label, icon]) => (
+              <div className="flex border-b border-border-internal bg-panel-low overflow-x-auto">
+                {([['chat', 'Chat', 'chat'], ['journals', `Shared Journals (${caseDetails.shared_journals?.length || 0})`, 'edit_note'], ['notes', 'Notes', 'edit_document'], ['timeline', 'Timeline', 'trending_up'], ['followup', 'Follow-up', 'event']] as const).map(([key, label, icon]) => (
                   <button key={key} onClick={() => setCaseTab(key as typeof caseTab)}
-                    className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-all ${caseTab === key ? 'border-primary text-primary bg-surface-container' : 'border-transparent text-on-surface-variant hover:bg-surface-container'}`}>
+                    className={`flex-1 min-w-[120px] py-3 text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 border-b-2 transition-all ${caseTab === key ? 'border-primary text-primary bg-surface-container' : 'border-transparent text-on-surface-variant hover:bg-surface-container'}`}>
                     <span className="material-symbols-outlined text-[18px]">{icon}</span> {label}
                   </button>
                 ))}
@@ -821,6 +874,84 @@ export default function PsychologistDashboard() {
               <div className="flex-1 overflow-y-auto p-md flex flex-col">
                 {caseTab === 'chat' && (
                   <div className="flex-1 flex flex-col">
+                    {/* ── MindBridge AI Clinical Risk Guidance Banner ── */}
+                    <div
+                      className="mb-4 p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm transition-all shrink-0"
+                      style={{
+                        backgroundColor:
+                          caseDetails.student.clinical_concern_level === 'high_concern'
+                            ? 'rgba(244, 63, 94, 0.12)'
+                            : caseDetails.student.clinical_concern_level === 'elevated'
+                            ? 'rgba(245, 158, 11, 0.12)'
+                            : 'rgba(16, 185, 129, 0.10)',
+                        borderColor:
+                          caseDetails.student.clinical_concern_level === 'high_concern'
+                            ? 'rgba(244, 63, 94, 0.35)'
+                            : caseDetails.student.clinical_concern_level === 'elevated'
+                            ? 'rgba(245, 158, 11, 0.35)'
+                            : 'rgba(16, 185, 129, 0.30)',
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                            caseDetails.student.clinical_concern_level === 'high_concern'
+                              ? 'bg-rose-500/20 text-rose-400'
+                              : caseDetails.student.clinical_concern_level === 'elevated'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-emerald-500/20 text-emerald-400'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            {caseDetails.student.clinical_concern_level === 'high_concern'
+                              ? 'crisis_alert'
+                              : caseDetails.student.clinical_concern_level === 'elevated'
+                              ? 'warning'
+                              : 'verified_user'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider font-mono text-white">
+                              MindBridge AI Triage:
+                            </span>
+                            <span
+                              className={`text-xs font-black uppercase px-2 py-0.5 rounded-full ${
+                                caseDetails.student.clinical_concern_level === 'high_concern'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                                  : caseDetails.student.clinical_concern_level === 'elevated'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              }`}
+                            >
+                              {caseDetails.student.clinical_concern_level === 'high_concern'
+                                ? '🚨 High Concern (Immediate Review)'
+                                : caseDetails.student.clinical_concern_level === 'elevated'
+                                ? '⚠️ Elevated (Counselor Attention)'
+                                : '🟢 Low Concern (Standard Baseline)'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-on-surface-variant mt-0.5">
+                            {caseDetails.student.clinical_concern_level === 'high_concern'
+                              ? 'Clinical distress or crisis markers detected in student messages. Escalated monitoring active.'
+                              : caseDetails.student.clinical_concern_level === 'elevated'
+                              ? 'Stress or burnout markers detected. Consider offering a live audio counseling session.'
+                              : 'Conversation exhibits standard baseline sentiment. Routine support recommended.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {caseDetails.active_appointment_id && (
+                        <button
+                          onClick={() => navigate(`/call/${caseDetails.active_appointment_id}`)}
+                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">call</span>
+                          <span>🟢 Audio Call</span>
+                        </button>
+                      )}
+                    </div>
+
                     <div className="flex-1 overflow-y-auto space-y-4 mb-4">
                       {caseDetails.chat_history.map(msg => (
                         <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
@@ -850,6 +981,57 @@ export default function PsychologistDashboard() {
                         <span className="material-symbols-outlined text-[18px]">send</span>
                       </button>
                     </div>
+                  </div>
+                )}
+                {caseTab === 'journals' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-heading font-bold text-white flex items-center gap-2">
+                        <span className="material-symbols-outlined text-interactive-primary text-[18px]">edit_note</span>
+                        Shared Student Diary Reflections
+                      </h3>
+                      <span className="text-xs text-on-surface-variant font-mono">
+                        {caseDetails.shared_journals?.length || 0} shared entries
+                      </span>
+                    </div>
+
+                    {!caseDetails.shared_journals || caseDetails.shared_journals.length === 0 ? (
+                      <div className="p-8 rounded-xl bg-surface-container text-center space-y-2 border border-border-internal">
+                        <span className="material-symbols-outlined text-3xl text-on-surface-variant opacity-40">lock</span>
+                        <p className="text-sm font-semibold text-white">No Shared Journal Entries</p>
+                        <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+                          The student has kept their diary entries private or hasn't created any shared reflections yet.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {caseDetails.shared_journals.map(j => (
+                          <div key={j.id} className="p-4 rounded-xl bg-surface-container border border-border-internal space-y-2.5">
+                            <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-border-internal">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-bold text-interactive-primary">{j.entry_date}</span>
+                                {j.mood && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-interactive-primary/15 text-interactive-primary border border-interactive-primary/30">
+                                    Mood: {j.mood}
+                                  </span>
+                                )}
+                                {j.mood_tag && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant border border-border-internal">
+                                    Tag: {j.mood_tag}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-on-surface-variant font-mono">
+                                {j.word_count} words
+                              </span>
+                            </div>
+                            <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap">
+                              {j.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {caseTab === 'notes' && (

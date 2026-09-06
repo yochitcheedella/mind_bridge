@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Clock, CheckCircle2, XCircle, RefreshCw,
-  ChevronLeft, ChevronRight, User, AlertCircle,
+  ChevronLeft, ChevronRight, User, AlertCircle, Phone,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { apiFetch } from '../utils/auth';
@@ -10,14 +11,16 @@ interface AppointmentItem {
   id: number;
   anonymous_id: string;
   slot_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'rescheduled' | 'completed' | string;
   notes: string | null;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   confirmed: { label: 'Confirmed', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
   pending: { label: 'Pending', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
   cancelled: { label: 'Cancelled', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  rescheduled: { label: 'Rescheduled', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  completed: { label: 'Completed', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,6 +28,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function PsychologistCalendar() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -227,8 +231,8 @@ export default function PsychologistCalendar() {
                               </p>
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_CONFIG[appt.status].color}`}>
-                            {STATUS_CONFIG[appt.status].label}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${(STATUS_CONFIG[appt.status] || STATUS_CONFIG.pending).color}`}>
+                            {(STATUS_CONFIG[appt.status] || STATUS_CONFIG.pending).label}
                           </span>
                         </div>
                         {appt.status === 'pending' && (
@@ -244,6 +248,17 @@ export default function PsychologistCalendar() {
                               className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
                             >
                               <XCircle size={12} /> Cancel
+                            </button>
+                          </div>
+                        )}
+                        {appt.status === 'confirmed' && (
+                          <div className="mt-2 pt-2 border-t border-border flex justify-end">
+                            <button
+                              onClick={() => navigate(`/call/${appt.id}`)}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all shadow-lg shadow-emerald-500/10 active:scale-95 animate-pulse"
+                            >
+                              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                              <span>Join Audio Call</span>
                             </button>
                           </div>
                         )}
@@ -291,8 +306,8 @@ export default function PsychologistCalendar() {
                         })}
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_CONFIG[appt.status].color}`}>
-                      {STATUS_CONFIG[appt.status].label}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${(STATUS_CONFIG[appt.status] || STATUS_CONFIG.pending).color}`}>
+                      {(STATUS_CONFIG[appt.status] || STATUS_CONFIG.pending).label}
                     </span>
                     {appt.status === 'pending' && (
                       <div className="flex gap-2">
@@ -309,6 +324,15 @@ export default function PsychologistCalendar() {
                           <XCircle size={15} />
                         </button>
                       </div>
+                    )}
+                    {appt.status === 'confirmed' && (
+                      <button
+                        onClick={() => navigate(`/call/${appt.id}`)}
+                        className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/10 active:scale-95 animate-pulse"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>Join Call</span>
+                      </button>
                     )}
                   </div>
                 </Card>

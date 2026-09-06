@@ -7,9 +7,118 @@ from app.core.database import get_db
 from app.core.alert_manager import alert_manager
 from app.models.user import Student
 from app.models.alert import RiskAlert
+from app.models.journal import JournalEntry
 from app.models.mood import MoodLog
+from pydantic import BaseModel
+from typing import List, Optional
 
 router = APIRouter(prefix="/api/risk", tags=["risk"])
+
+
+class RiskEvaluationRequest(BaseModel):
+    student_id: Optional[int] = None
+    user_message: Optional[str] = None
+    chat_history: Optional[List[dict]] = None
+    self_assessment_score: Optional[float] = None
+
+
+@router.post("/evaluate")
+def evaluate_risk(req: RiskEvaluationRequest, db: Session = Depends(get_db)):
+    """
+    Multi-Signal Risk Engine (0-100 score).
+    Synthesizes message content, conversation history, self-assessment,
+    and historical mood trajectories into an institutional risk classification.
+    """
+    signals = {
+        "chat_score": 10.0,
+        "mood_trajectory_score": 20.0,
+        "burnout_score": 15.0,
+        "assessment_score": 10.0,
+    }
+    
+    # 1. Message Safety / Sentiment Signal
+    msg_text = (req.user_message or "").lower()
+    critical_markers = ["kill myself", "suicide", "end my life", "want to die", "hanging", "overdose"]
+    high_markers = ["hopeless", "can't go on", "no point in living", "self harm", "cutting", "panic attack"]
+    moderate_markers = ["overwhelmed", "failing", "severe anxiety", "cannot sleep", "breaking down", "depressed"]
+    
+    if any(m in msg_text for m in critical_markers):
+        signals["chat_score"] = 95.0
+    elif any(m in msg_text for m in high_markers):
+        signals["chat_score"] = 75.0
+    elif any(m in msg_text for m in moderate_markers):
+        signals["chat_score"] = 50.0
+
+    # 2. Historical Mood Trajectory Signal
+    student = None
+    if req.student_id:
+        student = db.query(Student).filter(Student.id == req.student_id).first()
+        if student:
+            recent_moods = db.query(MoodLog).filter(MoodLog.student_id == student.id).order_by(MoodLog.created_at.desc()).limit(7).all()
+            if recent_moods:
+                avg_mood = sum(m.score for m in recent_moods) / len(recent_moods)
+                # Map 1-5 mood to 0-100 risk (1 mood -> 90 risk, 5 mood -> 10 risk)
+                signals["mood_trajectory_score"] = max(5.0, (5 - avg_mood) * 22.5)
+            
+            signals["burnout_score"] = float(student.burnout_probability or 0.0) * 100.0
+
+    # 3. Self-Assessment Signal
+    if req.self_assessment_score is not None:
+        signals["assessment_score"] = float(req.self_assessment_score)
+
+    # 4. Multi-Signal Fusion
+    composite_score = round(
+        0.35 * signals["chat_score"] +
+        0.25 * signals["mood_trajectory_score"] +
+        0.20 * signals["burnout_score"] +
+        0.20 * signals["assessment_score"],
+        2
+    )
+
+    # Critical override if explicit self-harm detected
+    if signals["chat_score"] >= 90.0:
+        composite_score = max(composite_score, 85.0)
+
+    # Categorization: 0-19 LOW, 20-39 MILD, 40-59 MODERATE, 60-79 HIGH, 80-100 CRITICAL
+    if composite_score >= 80.0:
+        tier = "CRITICAL"
+        requires_review = True
+        requires_identity_access = False # Only with explicit clinical escalation
+        confidence = 0.94
+    elif composite_score >= 60.0:
+        tier = "HIGH"
+        requires_review = True
+        requires_identity_access = False
+        confidence = 0.88
+    elif composite_score >= 40.0:
+        tier = "MODERATE"
+        requires_review = False
+        requires_identity_access = False
+        confidence = 0.82
+    elif composite_score >= 20.0:
+        tier = "MILD"
+        requires_review = False
+        requires_identity_access = False
+        confidence = 0.90
+    else:
+        tier = "LOW"
+        requires_review = False
+        requires_identity_access = False
+        confidence = 0.95
+
+    # Update student risk_score if student known
+    if student:
+        student.risk_score = round(composite_score / 100.0, 3)
+        db.commit()
+
+    return {
+        "risk_score": composite_score,
+        "risk_level": tier,
+        "confidence": confidence,
+        "requires_review": requires_review,
+        "requires_identity_access": requires_identity_access,
+        "signals": signals,
+    }
 
 
 @router.get("/queue")

@@ -28,6 +28,23 @@ const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').repla
 
 export const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 
+export function getWsBaseUrl(): string {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL.replace('localhost', '127.0.0.1');
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+      .replace('http://', 'ws://')
+      .replace('https://', 'wss://')
+      .replace('localhost', '127.0.0.1');
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  if (window.location.port === '5173' || window.location.port === '3000') {
+    return `${protocol}//127.0.0.1:8000`;
+  }
+  return `${protocol}//${window.location.host}`;
+}
+
 export function getAuth(): AuthState | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY);
