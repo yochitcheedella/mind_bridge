@@ -229,7 +229,7 @@ export default function Login() {
               </button>
               <button
                 type="button"
-                onClick={() => quickLogin('dr.sarah.mehta@vishnu.edu.in', 'Psych@VIT2024')}
+                onClick={() => quickLogin('ram.sir@vishnu.edu.in', 'Psych@VIT2024')}
                 className="px-2 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold transition-all flex flex-col items-center gap-0.5 active:scale-95"
               >
                 <span className="text-base">🧠</span>
